@@ -22,11 +22,6 @@ void neuron::normalize(bool forward)
 /*
 
 
-void layer::initialiserTailles()
-{
-    for(int i = dim.size() - 2; i + 1; i--)
-        tailles[i] = tailles[i + 1] * dim[i + 1];
-}
 
 
 

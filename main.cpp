@@ -13,7 +13,7 @@
 
 
 
-int main(int argc, char *argv[])
+int main(int, char *[])
 {
     assert(std::isnan(NAN));//std::numeric_limits::quiet_NaN
     neuralNetwork<double> test;

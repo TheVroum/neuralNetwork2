@@ -24,9 +24,9 @@ class sync
 
 public:
 
-    sync();
+    sync() = default;
     sync(sync&&);
-    //sync(sync&) = delete;
+    sync(sync&) = delete;
     void operator =(size_t);
     size_t get() const;
 

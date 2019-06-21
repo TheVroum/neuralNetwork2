@@ -6,11 +6,12 @@
 
 
 
-
-
-sync::sync()
+sync::sync(sync&&s)
 {
+    m = s.m;
+    v = s.v;
 }
+
 
 
 

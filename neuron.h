@@ -25,6 +25,9 @@
 //make the ++ and -- used callbacks to have const parameters so only value and coefficient are altered
 
 
+///in the constructor of neuron :
+///Cycle indicate a parallel cycle. Each cycle number is not
+///a unique computation/assertion but n computation/assertion where n is the number of parallel network training
 
 
 template <typename ExtraDataT>
@@ -47,11 +50,17 @@ typedef std::function <double(size_t cycle
     , neuronCoordinate nCoordinate)>
 neuronCoeffDerivativeCalculatorFunction;
 
-typedef std::function <void(const std::vector <std::pair<size_t, double*>> &sc
-                            , const std::vector <std::pair <neuron*, double*>> &ne
-                            , const std::vector <std::pair <neuron*, double*>> &pr
-                            , neuron*)>
-computationFunction;
+
+
+template <typename ExtraDataT>
+class neuron;
+
+
+template <typename ExtraDataT>
+using computationFunction = std::function <void(const std::vector <std::pair<size_t, double*>> &sc
+                            , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
+                            , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
+                            , neuron<ExtraDataT>*)>;
 
 
 
@@ -105,7 +114,7 @@ private:
 
     neuronCoeffDerivativeCalculatorFunction c_coeffDerivativeCalculator;
 
-    computationFunction c_forwardCompute, c_backwardCompute;//calls c_activationFunction & c_activationFunctionDerivative
+    computationFunction<ExtraDataT> c_forwardCompute, c_backwardCompute;//calls c_activationFunction & c_activationFunctionDerivative
 
     std::function <void(bool backward, neuron* target)> c_normalize;
     //the previous callback now plays the role of giving directly the derivative, to add to the coeff
@@ -116,33 +125,36 @@ private:
 public://Membres
 
     neuron() = delete;
+    neuron(neuron&&) = delete;
+    neuron(const neuron&) = delete;
+    neuron operator=(neuron&&) = delete;
+    neuron operator=(const neuron&) = delete;
 
-    neuron(neuron&&) = default;
-    neuron(neuron&) = default;
     ~neuron() = default;
 
     neuron(std::function <void(bool direction, neuron* target)> c_normalize_p
         , std::function <double(double input)> c_activationFunction_p
         , std::function <double(double input)> c_activationFunctionDerivative_p
         , neuronCoeffDerivativeCalculatorFunction c_coeffDerivativeCalculator_p
-        , computationFunction forwardCalculator
-        , computationFunction backwardCalculator
+        , computationFunction<ExtraDataT> forwardCalculator
+        , computationFunction<ExtraDataT> backwardCalculator
         , double bias_p
         , size_t historySize
         , size_t selfCoeffsNumber
-        , size_t *cycle_p
+        , size_t *cycle_p///Cycle indicate a parallel cycle. Each cycle number is not
+                        ///a unique computation/assertion but n computation/assertion where n is the number of parallel network training
         , double *errorIndicator_p
         , bool *backPropagating_p
         , neuronCoordinate nCoordinate_p
         , ExtraDataT ExtraData_p);
 
 
-    void operator=(std::function <void(bool direction, neuron* target)> c_normalize_p
+    void set/*operator=*/(std::function <void(bool direction, neuron* target)> c_normalize_p
         , std::function <double(double input)> c_activationFunction_p
         , std::function <double(double input)> c_activationFunctionDerivative_p
         , neuronCoeffDerivativeCalculatorFunction c_coeffDerivativeCalculator_p
-        , computationFunction forwardCalculator
-        , computationFunction backwardCalculator
+        , computationFunction<ExtraDataT> forwardCalculator
+        , computationFunction<ExtraDataT> backwardCalculator
         , double bias_p
         , size_t historySize
         , size_t selfCoeffsNumber
@@ -178,8 +190,8 @@ neuron<ExtraDataT>::neuron(std::function <void(bool direction, neuron* target)> 
     , std::function <double(double input)> c_activationFunction_p
     , std::function <double(double input)> c_activationFunctionDerivative_p
     , neuronCoeffDerivativeCalculatorFunction c_coeffDerivativeCalculator_p
-    , computationFunction forwardCalculator_p
-    , computationFunction backwardCalculator_p
+    , computationFunction<ExtraDataT> forwardCalculator_p
+    , computationFunction<ExtraDataT> backwardCalculator_p
     , double bias_p
     , size_t historySize
     , size_t selfCoeffsNumber
@@ -215,12 +227,12 @@ c_backwardCompute(backwardCalculator_p)
 
 
 template <typename ExtraDataT>
-void neuron<ExtraDataT>::operator=(std::function <void(bool direction, neuron* target)> c_normalize_p
+void neuron<ExtraDataT>::set(std::function <void(bool direction, neuron* target)> c_normalize_p
     , std::function <double(double input)> c_activationFunction_p
     , std::function <double(double input)> c_activationFunctionDerivative_p
     , neuronCoeffDerivativeCalculatorFunction c_coeffDerivativeCalculator_p
-    , computationFunction forwardCalculator_p
-    , computationFunction backwardCalculator_p
+    , computationFunction<ExtraDataT> forwardCalculator_p
+    , computationFunction<ExtraDataT> backwardCalculator_p
     , double bias_p
     , size_t historySize
     , size_t selfCoeffsNumber
@@ -228,26 +240,26 @@ void neuron<ExtraDataT>::operator=(std::function <void(bool direction, neuron* t
     , double *errorIndicator_p
     , bool *backPropagating_p
     , neuronCoordinate nCoordinate_p
-    , ExtraDataT ExtraData_p):
-    bias(bias_p),
-    cycle(cycle_p),
-    errorIndicator(errorIndicator_p),
-    backPropagating(backPropagating_p),
-    nCoordinate(nCoordinate_p),
-    forwardValue(0),
-    forwardValueHistory(historySize, NAN),
-    backwardValue(0),
-    backwardValueHistory(historySize, NAN),
-    selfCoeffs(selfCoeffsNumber, 0),
-    ExtraData(ExtraData_p),
-    c_normalize(c_normalize_p),
-    c_activationFunction(c_activationFunction_p),
-    c_activationFunctionDerivative(c_activationFunctionDerivative_p),
-    c_coeffDerivativeCalculator(c_coeffDerivativeCalculator_p),
-    c_forwardCompute(forwardCalculator_p),
-    c_backwardCompute(backwardCalculator_p)
-    {
-    }
+    , ExtraDataT ExtraData_p)
+{
+    bias = bias_p;
+    cycle = cycle_p;
+    errorIndicator = errorIndicator_p;
+    backPropagating = backPropagating_p;
+    nCoordinate = nCoordinate_p;
+    forwardValue = 0;
+    forwardValueHistory = historySize, NAN;
+    backwardValue = 0;
+    backwardValueHistory = historySize, NAN;
+    selfCoeffs = selfCoeffsNumber, 0;
+    ExtraData = ExtraData_p;
+    c_normalize = c_normalize_p;
+    c_activationFunction = c_activationFunction_p;
+    c_activationFunctionDerivative = c_activationFunctionDerivative_p;
+    c_coeffDerivativeCalculator = c_coeffDerivativeCalculator_p;
+    c_forwardCompute = forwardCalculator_p;
+    c_backwardCompute = backwardCalculator_p;
+}
 
 
 
