@@ -238,6 +238,7 @@ private://generated attributes
 public:
 
     interComputationNeuronAlterationFunction<ExtraDataT> c_interComputationNeuronAlterationFunction;
+    void setInterComputationNeuronAlterationFunction(interComputationNeuronAlterationFunction<ExtraDataT>);
 
 
 private://computation time Attribute
@@ -391,6 +392,14 @@ void neuralNetwork<ExtraDataT>::connectLayersRecursive(layerCoordinate feedingLa
 
 
 
+
+
+
+template <typename ExtraDataT>
+void neuralNetwork<ExtraDataT>::setInterComputationNeuronAlterationFunction(interComputationNeuronAlterationFunction<ExtraDataT> f)
+{
+    c_interComputationNeuronAlterationFunction = f;
+}
 
 
 
