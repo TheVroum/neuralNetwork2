@@ -25,7 +25,6 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
         main.cpp \
-    neuralnetwork.cpp \
     templateneuronscale.cpp \
     sync.cpp \
     randomness.cpp \

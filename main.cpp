@@ -6,7 +6,8 @@
 ///dans la librairie afin de rendre celle-ci très utilisable
 
 
-
+///to use general dropout you can either use normalize neurons callback or intercomputation neuron alteration neural network callback.
+///for specialized position dependant dropout, you have to use the above cited neuralnetwork callback
 
 
 

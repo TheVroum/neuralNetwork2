@@ -12,6 +12,15 @@
 ///Be careful to inline the higly used callbacks
 
 
+///Treatment of droped neuron :
+///i chose here, for performance purposes, that instead of checking "to-add-neurons" droping state before
+///adding their coefficient, droped neuron coeffient will be set to 0. However depending on the calculation
+///function used, this could be a problem in the case where 0 is not a neutral element (like if it was
+///a multiplicative calculus).
+
+
+
+///create here a normalizeDropout callback
 
 
 inline double relu(double input)
@@ -69,6 +78,9 @@ inline bool defaultcoeffDerivativeCalculator(size_t/* cycle*//*parameter name co
         return propagatingError * 10 / coeff;
 }
 
+
+
+
 template <typename ExtraDataT>
 void defaultNormalize(bool backward, neuron<ExtraDataT>* target)//set backward to true AFTER normalization
 //bias added in forward compute
@@ -104,28 +116,34 @@ void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &sc//s
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
     , neuron<ExtraDataT>* n)
 {
-    for(auto a : sc)
-        n->forwardValue += (*(a.second)) * n->forwardValueHistory[a.first];
-    for(auto a : pr)
-        n->forwardValue += a.second * a.first->forwardValue;
-    n->forwardValue += n->bias;
-    n->forwardValue = n->c_activationFunction(n->forwardValue);
+    if(!n->droped)
+    {
+        for(auto a : sc)
+            n->forwardValue += (*(a.second)) * n->forwardValueHistory[a.first];
+        for(auto a : pr)
+            n->forwardValue += a.second * a.first->forwardValue;
+        n->forwardValue += n->bias;
+        n->forwardValue = n->c_activationFunction(n->forwardValue);
+    }
 }
 
 
 
-template <typename ExtraDataT>
+template <typename ExtraDataT>///recurrent coefficient not handled here ! Add them and optionally, add a second wrapperCoeffDerivator callback to calculate these specific coefficients
 void defaultBackwardCompute(const std::vector <std::pair<size_t, double*>> &sc//self recurr included
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
     , neuron<ExtraDataT>* n)
 {
-    //on ne peut pas récupérer les dérivées inverse du futur (cependant on pourrait dans le futur compenser)
-    for(auto &a : ne)
-        n->backwardValue += a.second * a.first->backwardValue;
-    n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
-    for(auto &a : pr)
-        (*(a.second)) += n->wrapperCoeffDerivativeCalculator(*(a.second));//automatically gets n->backwardValue
+    if(!n->droped)
+    {
+        //on ne peut pas récupérer les dérivées inverse du futur (cependant on pourrait dans le futur compenser)
+        for(auto &a : ne)
+            n->backwardValue += a.second * a.first->backwardValue;
+        n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
+        for(auto &a : pr)
+            (*(a.second)) += n->wrapperCoeffDerivativeCalculator(*(a.second));//automatically gets n->backwardValue
+    }
 }
 
 

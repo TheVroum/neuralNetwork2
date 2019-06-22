@@ -30,7 +30,16 @@
 ///a unique computation/assertion but n computation/assertion where n is the number of parallel network training
 
 
-template <typename ExtraDataT>
+
+
+///be careful. Copy operator is partial
+
+
+
+
+
+
+template <typename ExtraDataT/*on neurons*/>
 class neuralNetwork;
 
 
@@ -72,6 +81,7 @@ class neuron
 public://Attributs
 
     double bias;
+    bool droped;
 
     size_t *cycle;
     double *errorIndicator;
@@ -95,7 +105,7 @@ private :
 
     std::vector <std::pair<size_t, double*>> selfCoeffs;
     std::vector <std::pair <neuron*, double*>> next, previous;
-    friend class neuralNetwork<ExtraDataT>;
+    //friend class neuralNetwork<ExtraDataT>;
 
 public:
 
@@ -126,10 +136,10 @@ public://Membres
 
     neuron() = delete;
     neuron(neuron&&) = delete;
-    neuron(const neuron&) = delete;
     neuron operator=(neuron&&) = delete;
     neuron operator=(const neuron&) = delete;
 
+    neuron(const neuron&);//delete;//default copy do not handle
     ~neuron() = default;
 
     neuron(std::function <void(bool direction, neuron* target)> c_normalize_p
@@ -139,7 +149,7 @@ public://Membres
         , computationFunction<ExtraDataT> forwardCalculator
         , computationFunction<ExtraDataT> backwardCalculator
         , double bias_p
-        , size_t historySize
+        , bool droped_p, size_t historySize
         , size_t selfCoeffsNumber
         , size_t *cycle_p///Cycle indicate a parallel cycle. Each cycle number is not
                         ///a unique computation/assertion but n computation/assertion where n is the number of parallel network training
@@ -149,6 +159,8 @@ public://Membres
         , ExtraDataT ExtraData_p);
 
 
+
+
     void set/*operator=*/(std::function <void(bool direction, neuron* target)> c_normalize_p
         , std::function <double(double input)> c_activationFunction_p
         , std::function <double(double input)> c_activationFunctionDerivative_p
@@ -156,6 +168,7 @@ public://Membres
         , computationFunction<ExtraDataT> forwardCalculator
         , computationFunction<ExtraDataT> backwardCalculator
         , double bias_p
+        , bool initialDropState_p
         , size_t historySize
         , size_t selfCoeffsNumber
         , size_t *cycle_p
@@ -193,6 +206,7 @@ neuron<ExtraDataT>::neuron(std::function <void(bool direction, neuron* target)> 
     , computationFunction<ExtraDataT> forwardCalculator_p
     , computationFunction<ExtraDataT> backwardCalculator_p
     , double bias_p
+    , bool droped_p
     , size_t historySize
     , size_t selfCoeffsNumber
     , size_t *cycle_p
@@ -201,6 +215,7 @@ neuron<ExtraDataT>::neuron(std::function <void(bool direction, neuron* target)> 
     , neuronCoordinate nCoordinate_p
     , ExtraDataT ExtraData_p):
 bias(bias_p),
+droped(droped_p),
 cycle(cycle_p),
 errorIndicator(errorIndicator_p),
 backPropagating(backPropagating_p),
@@ -234,6 +249,7 @@ void neuron<ExtraDataT>::set(std::function <void(bool direction, neuron* target)
     , computationFunction<ExtraDataT> forwardCalculator_p
     , computationFunction<ExtraDataT> backwardCalculator_p
     , double bias_p
+    , bool initialDropState_p
     , size_t historySize
     , size_t selfCoeffsNumber
     , size_t *cycle_p
@@ -243,6 +259,7 @@ void neuron<ExtraDataT>::set(std::function <void(bool direction, neuron* target)
     , ExtraDataT ExtraData_p)
 {
     bias = bias_p;
+    droped = initialDropState_p;
     cycle = cycle_p;
     errorIndicator = errorIndicator_p;
     backPropagating = backPropagating_p;
@@ -312,6 +329,38 @@ inline void neuron<ExtraDataT>::operator++()
 {
     c_forwardCompute(selfCoeffs, next, previous, this);
 }
+
+
+
+
+
+template <typename ExtraDataT>
+neuron<ExtraDataT>::neuron(const neuron&n):
+    bias(n.bias),
+    droped(0),//i chose that droping state is not copied
+    cycle(n.cycle),
+    errorIndicator(n.errorIndicator),
+    backPropagating(n.backPropagating),
+    nCoordinate(n.nCoordinate),
+    forwardValue(n.forwardValue),
+    forwardValueHistory(n.forwardValueHistory),
+    backwardValue(n.backwardValue),
+    backwardValueHistory(n.backwardValueHistory),
+    inited(n.inited),
+    linked(n.linked),
+    ExtraData(n.ExtraData),
+    c_normalize(n.c_normalize),
+    c_activationFunction(n.c_activationFunction),
+    c_activationFunctionDerivative(n.c_activationFunctionDerivative),
+    c_coeffDerivativeCalculator(n.c_coeffDerivativeCalculator),
+    c_forwardCompute(n.c_forwardCompute),
+    c_backwardCompute(n.c_backwardCompute)
+{
+    next.clear();
+    previous.clear();
+    selfCoeffs.clear();
+}
+
 
 
 
