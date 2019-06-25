@@ -112,7 +112,7 @@ void normalizeNoHistory(bool backward, neuron<ExtraDataT>* target)//bias added i
 template <typename ExtraDataT>
 void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &sc//self recurr included
 //bias added here
-    , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
+    , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
     , neuron<ExtraDataT>* n)
 {
@@ -121,7 +121,7 @@ void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &sc//s
         for(auto a : sc)
             n->forwardValue += (*(a.second)) * n->forwardValueHistory[a.first];
         for(auto a : pr)
-            n->forwardValue += a.second * a.first->forwardValue;
+            n->forwardValue += (*(a.second)) * a.first->forwardValue;
         n->forwardValue += n->bias;
         n->forwardValue = n->c_activationFunction(n->forwardValue);
     }
@@ -130,7 +130,7 @@ void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &sc//s
 
 
 template <typename ExtraDataT>///recurrent coefficient not handled here ! Add them and optionally, add a second wrapperCoeffDerivator callback to calculate these specific coefficients
-void defaultBackwardCompute(const std::vector <std::pair<size_t, double*>> &sc//self recurr included
+void defaultBackwardCompute(const std::vector <std::pair<size_t, double*>> &//self recurr included
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
     , neuron<ExtraDataT>* n)
@@ -139,7 +139,7 @@ void defaultBackwardCompute(const std::vector <std::pair<size_t, double*>> &sc//
     {
         //on ne peut pas récupérer les dérivées inverse du futur (cependant on pourrait dans le futur compenser)
         for(auto &a : ne)
-            n->backwardValue += a.second * a.first->backwardValue;
+            n->backwardValue += (*(a.second)) * a.first->backwardValue;
         n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
         for(auto &a : pr)
             (*(a.second)) += n->wrapperCoeffDerivativeCalculator(*(a.second));//automatically gets n->backwardValue

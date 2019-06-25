@@ -1,5 +1,5 @@
 #include "neuralnetwork.h"
-
+#include "templatelargerscale.h"
 
 
 ///important : créer des spécialisations direcrement
@@ -13,10 +13,16 @@
 
 
 
-
 int main(int, char *[])
 {
     assert(std::isnan(NAN));//std::numeric_limits::quiet_NaN
-    neuralNetwork<double> test;
+
+    neuralNetwork<int> nn;
+    nn.addLayer({2}, {0, 0}, 1, 0);
+    nn.addLayer({2});
+    nn.addLayer({1}, {0, 0}, 0, 1, defaultSoftmax<int>);
+    nn.connectLayers();
+
     return 0;
+
 }

@@ -16,13 +16,15 @@
 
 
 
+#include "templatelargerscale.h"
 #include "templateneuronscale.h"
 #include "neuron.h"
 
 
 
 
-
+template <typename ExtraDataT>
+neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &);
 
 
 
@@ -39,7 +41,6 @@ struct neuronConstructorParameters
     double bias_p;
     double droped;
     size_t historySize;
-    size_t selfCoeffsNumber;
     ExtraDataT ExtraData_p;
 };
 
@@ -65,6 +66,7 @@ typedef std::function <std::vector<layerConnections>()> layersConnectFunction;
 
 class layerCoordinateCmp
 {
+public:
     inline bool operator()(layerCoordinate const&a, layerCoordinate const&b)
     {return (static_cast<double>(a.first) /
              static_cast<double>(a.second) -
@@ -74,6 +76,7 @@ class layerCoordinateCmp
 
 class neuronCoordinateCmp
 {
+public:
     inline bool operator()(neuronCoordinate const&a, neuronCoordinate const&b)
     {
         if(a.first < a.first)
@@ -116,9 +119,6 @@ using interComputationNeuronAlterationFunction = std::function<void(neuron<Extra
 
 
 
-
-template <typename ExtraDataT>
-neuronConfigureFunction<ExtraDataT> defaultRelu(const neuronCoordinate &n);
 
 ///check that c_interComputationNeuronAlterationFunction is not null before calling
 
@@ -251,7 +251,7 @@ private://computation time Attribute
 
 public://computing
 
-    layerFeed assertion(layerFeed input);
+    layerFeed assertion(layerFeed input);//default is forwardState
 };
 
 
@@ -295,7 +295,12 @@ void neuralNetwork<ExtraDataT>::addLayer(std::vector <size_t> dims, layerCoordin
 {
     size_t upBound = totalSize(dims);
     if((!lc.first) && (!lc.second))
-        lc = (neurons.end--)->first, lc.first++;
+    {
+        if(!neurons.empty())
+            lc = (neurons.end()--)->first, lc.first++;
+        else
+            lc.first = 0, lc.second = 1;
+    }
     layersInformationInputOutput[lc].first = input;
     layersInformationInputOutput[lc].second = output;
     layersTotalNumberOfNeuron[lc] = totalSize(dims);
@@ -313,7 +318,6 @@ void neuralNetwork<ExtraDataT>::addLayer(std::vector <size_t> dims, layerCoordin
             , param.bias_p
             , param.droped
             , param.historySize
-            , param.selfCoeffsNumber
 
             , &cycle
             , &errorIndicator
@@ -348,7 +352,6 @@ void neuralNetwork<ExtraDataT>::alterLayer(layerCoordinate lc, neuronConfigureFu
               , param.backwardCalculator
               , param.bias_p
               , param.historySize
-              , param.selfCoeffsNumber
 
               , &cycle
               , &errorIndicator
@@ -512,6 +515,33 @@ c_interComputationNeuronAlterationFunction(0)
 
 //faire deux versions : une versions où on fournit des callbacks d'assertion/apprentissage et une où on demande deux callback : de feedFor et feedBac
 
+
+
+
+template <typename ExtraDataT>
+layerFeed neuralNetwork<ExtraDataT>::assertion(layerFeed input)
+{
+    layerFeed ret;
+    assert(computing.try_lock());
+    buildDimensions();
+
+    for(std::pair<layerCoordinate, std::vector <double>> &a : input)
+        for(size_t i = 0; i < a.second.size(); ++i)
+            assert(layersInformationInputOutput[a.first].first)
+            , neurons[a.first][i].forwardValue = a.second[i];
+
+    for(std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>> &a : neurons)
+        for(neuron<ExtraDataT> &b : a.second)
+            b++;
+
+    for(std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>> &a : neurons)
+        for(neuron<ExtraDataT> &b : a.second)
+            ret[a.first].push_back(b.forwardValue);
+
+    buildDimensions();
+    computing.unlock();
+    return ret;
+}
 
 
 

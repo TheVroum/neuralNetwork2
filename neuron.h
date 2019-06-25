@@ -150,7 +150,6 @@ public://Membres
         , computationFunction<ExtraDataT> backwardCalculator
         , double bias_p
         , bool droped_p, size_t historySize
-        , size_t selfCoeffsNumber
         , size_t *cycle_p///Cycle indicate a parallel cycle. Each cycle number is not
                         ///a unique computation/assertion but n computation/assertion where n is the number of parallel network training
         , double *errorIndicator_p
@@ -170,7 +169,6 @@ public://Membres
         , double bias_p
         , bool initialDropState_p
         , size_t historySize
-        , size_t selfCoeffsNumber
         , size_t *cycle_p
         , double *errorIndicator_p
         , bool *backPropagating_p
@@ -208,7 +206,6 @@ neuron<ExtraDataT>::neuron(std::function <void(bool direction, neuron* target)> 
     , double bias_p
     , bool droped_p
     , size_t historySize
-    , size_t selfCoeffsNumber
     , size_t *cycle_p
     , double *errorIndicator_p
     , bool *backPropagating_p
@@ -226,14 +223,13 @@ backwardValue(0),
 backwardValueHistory(historySize, NAN),
 inited(1),
 linked(0),
-selfCoeffs(selfCoeffsNumber, 0),
 ExtraData(ExtraData_p),
-c_normalize(c_normalize_p),
 c_activationFunction(c_activationFunction_p),
 c_activationFunctionDerivative(c_activationFunctionDerivative_p),
 c_coeffDerivativeCalculator(c_coeffDerivativeCalculator_p),
 c_forwardCompute(forwardCalculator_p),
-c_backwardCompute(backwardCalculator_p)
+c_backwardCompute(backwardCalculator_p),
+c_normalize(c_normalize_p)
 {
     assert(std::isnan(NAN));//std::numeric_limits::quiet_NaN
 }
@@ -251,7 +247,6 @@ void neuron<ExtraDataT>::set(std::function <void(bool direction, neuron* target)
     , double bias_p
     , bool initialDropState_p
     , size_t historySize
-    , size_t selfCoeffsNumber
     , size_t *cycle_p
     , double *errorIndicator_p
     , bool *backPropagating_p
@@ -268,7 +263,6 @@ void neuron<ExtraDataT>::set(std::function <void(bool direction, neuron* target)
     forwardValueHistory = historySize, NAN;
     backwardValue = 0;
     backwardValueHistory = historySize, NAN;
-    selfCoeffs = selfCoeffsNumber, 0;
     ExtraData = ExtraData_p;
     c_normalize = c_normalize_p;
     c_activationFunction = c_activationFunction_p;
@@ -349,12 +343,12 @@ neuron<ExtraDataT>::neuron(const neuron&n):
     inited(n.inited),
     linked(n.linked),
     ExtraData(n.ExtraData),
-    c_normalize(n.c_normalize),
     c_activationFunction(n.c_activationFunction),
     c_activationFunctionDerivative(n.c_activationFunctionDerivative),
     c_coeffDerivativeCalculator(n.c_coeffDerivativeCalculator),
     c_forwardCompute(n.c_forwardCompute),
-    c_backwardCompute(n.c_backwardCompute)
+    c_backwardCompute(n.c_backwardCompute),
+    c_normalize(n.c_normalize)
 {
     next.clear();
     previous.clear();
