@@ -37,6 +37,28 @@
 
 
 
+class layerCoordinate
+{
+public:
+
+
+    int n;
+
+    inline layerCoordinate(){n = 0;}
+    layerCoordinate(const layerCoordinate&o):n(o.n){}
+    inline layerCoordinate(double i): n(i*10){}
+    inline layerCoordinate(int i): n(i*10){}
+    inline bool operator <(const layerCoordinate&o) const {return n < o.n;}
+    inline bool operator==(const layerCoordinate&o) const {return n == o.n;}
+    inline operator bool(){return n;}
+    inline void operator++(int){n += 10;}
+    inline void operator++(){n += 10;}
+    inline void operator=(const layerCoordinate&o){n = o.n;}
+};
+
+
+
+
 
 
 template <typename ExtraDataT/*on neurons*/>
@@ -46,7 +68,7 @@ class neuralNetwork;
 
 
 
-typedef std::pair <size_t, size_t> layerCoordinate;
+class layerCoordinate;
 typedef std::pair <layerCoordinate, size_t> neuronCoordinate;
 
 
@@ -105,7 +127,7 @@ private :
 
     std::vector <std::pair<size_t, double*>> selfCoeffs;
     std::vector <std::pair <neuron*, double*>> next, previous;
-    //friend class neuralNetwork<ExtraDataT>;
+    friend class neuralNetwork<ExtraDataT>;
 
 public:
 
@@ -184,6 +206,7 @@ public://Membres
 
     inline void operator()();//calls c_normalize though normalize
     inline void operator++();//calls c_forwardCompute
+    inline void operator++(int){this->operator++();}//calls c_forwardCompute
     inline void operator--();//calls c_backwardCompute
 
 

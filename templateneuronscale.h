@@ -6,7 +6,7 @@
 
 
 
-#include "neuron.h"
+#include "neuralnetwork.h"
 
 
 ///Be careful to inline the higly used callbacks

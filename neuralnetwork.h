@@ -6,6 +6,32 @@
 ///too frequents agregations decrease efficiency and precision of recurrent network, especially the one with link to old self-history
 
 
+
+///be careful. ++(incrementing operator) for first feeding layer receiving input
+/// calls forwartdCompute which add a bias and apply activation function
+
+
+
+
+
+
+///eventuellement ajouter ultérieurement un quatrième paramètre à l'altération inter cycle de neurone, qui serait le numéro de la copie du neural network
+/// qui permettrait par exemple de mettre les entraînements subsidaires qui changent peu les coefficients, dans un même groupe de thread et dans un même neural network
+/// et de faire savoir qu'il s'agit de ce type de thread aux callback (calculateurs et feeders)
+
+
+
+///pour la version classique et la version à plusieurs feed par network à 2 couches d'intervalles, travailler uniquement dans les copies (et faire des agrégations régulières)
+/// comme ça quand on souhaite arrêter l'entraînement, il suffit de détruire les copies (éventuellement faire une dernière agrégation), et tout est normalisé
+
+
+
+///normalize callback is the inter half computation normalization. Think of changing name, so we can use this name.
+
+///evaluate training end and neuron reset callback
+
+
+
 #include <map>
 #include <vector>
 #include <mutex>
@@ -15,16 +41,9 @@
 
 
 
-
-#include "templatelargerscale.h"
-#include "templateneuronscale.h"
 #include "neuron.h"
 
 
-
-
-template <typename ExtraDataT>
-neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &);
 
 
 
@@ -39,14 +58,24 @@ struct neuronConstructorParameters
     computationFunction<ExtraDataT> forwardCalculator;
     computationFunction<ExtraDataT> backwardCalculator;
     double bias_p;
-    double droped;
+    bool droped;
     size_t historySize;
     ExtraDataT ExtraData_p;
 };
 
 
 
-typedef std::pair <size_t, size_t> layerCoordinate;
+
+
+template <typename ExtraDataT>
+neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &);
+
+
+
+
+
+
+
 typedef std::pair <layerCoordinate, size_t> neuronCoordinate;
 
 
@@ -55,10 +84,9 @@ using neuronConfigureFunction = std::function <neuronConstructorParameters<Extra
 
 
 
-typedef std::pair<std::pair<size_t/*feeder or feeder & fed for recursive*/
-    , size_t/*fed or recrusion level for recursive*/>, double/*initial weight*/> layerConnections;
+typedef std::pair<std::pair<size_t, size_t>, double/*initial weight*/> layerConnections;
 
-typedef std::function <std::vector<layerConnections>()> layersConnectFunction;
+typedef std::function <std::vector<layerConnections>(std::vector <size_t>, std::vector<size_t>)> layersConnectFunction;
 
 
 
@@ -67,29 +95,22 @@ typedef std::function <std::vector<layerConnections>()> layersConnectFunction;
 class layerCoordinateCmp
 {
 public:
-    inline bool operator()(layerCoordinate const&a, layerCoordinate const&b)
-    {return (static_cast<double>(a.first) /
-             static_cast<double>(a.second) -
-             static_cast<double>(b.first) /
-             static_cast<double>(b.second)) > 0.00001;}
+    inline bool operator()(layerCoordinate const&a, layerCoordinate const&b) const
+    {
+        return a < b;
+    }
 };
 
 class neuronCoordinateCmp
 {
 public:
-    inline bool operator()(neuronCoordinate const&a, neuronCoordinate const&b)
+    inline bool operator()(neuronCoordinate const&a, neuronCoordinate const&b) const
     {
-        if(a.first < a.first)
-            return 1;
+        if(a.first == b.first)
+            return a.second < b.second;
         else
         {
-            if(a.first.first == b.first.first && a.first.second == b.first.second)
-            {
-                return a.second < b.second;
-            }
-            else
-                return 0;
-
+            return a.first < b.first;
         }
     }
     static inline bool compLayer(neuronCoordinate const&a, neuronCoordinate const&b)
@@ -116,8 +137,9 @@ using interComputationNeuronAlterationFunction = std::function<void(neuron<Extra
 
 
 
-
-
+template <typename ExtraDataT>
+inline void emptyInterComputationNeuronAlterationFunction
+    (neuron<ExtraDataT>* target, neuronCoordinate c, size_t cycle);
 
 
 ///check that c_interComputationNeuronAlterationFunction is not null before calling
@@ -138,7 +160,7 @@ public:
 
     neuralNetwork();
     ~neuralNetwork() = default;
-    neuralNetwork(const neuralNetwork&);
+    neuralNetwork(neuralNetwork &);//la copie prends un non const car on try lock le mutex (car c'est la seule manière de voire son état)
 
     neuralNetwork(neuralNetwork&&) = delete;
     neuralNetwork& operator=(const neuralNetwork&) = delete;
@@ -146,7 +168,7 @@ public:
 
 
 
-    void createLink(neuronCoordinate &c1, neuronCoordinate &c2, double initialWeight);
+    void createLink(const neuronCoordinate &c1, const neuronCoordinate &c2, double initialWeight);
 
 
     ///void createRecursiveLink(neuronCoordinate &c1, size_t recursion_level/*0 = previous*/, double initialWeight);
@@ -158,8 +180,8 @@ public:
 
 
     ///JUST BELOW :
-    void addLayer(std::vector <size_t>, layerCoordinate lc = {0, 0}, bool input = 0, bool output = 0, neuronConfigureFunction<ExtraDataT> = defaultRelu<ExtraDataT>);
-    void addLayer(std::initializer_list <size_t>, layerCoordinate lc = {0, 0}, bool input = 0, bool output = 0, neuronConfigureFunction<ExtraDataT> = defaultRelu<ExtraDataT>);
+    void addLayer(std::vector <size_t>, layerCoordinate lc = 0, bool input = 0, bool output = 0, neuronConfigureFunction<ExtraDataT> = defaultRelu<ExtraDataT>);
+    void addLayer(std::initializer_list <size_t>, layerCoordinate lc = 0, bool input = 0, bool output = 0, neuronConfigureFunction<ExtraDataT> = defaultRelu<ExtraDataT>);
 
     void alterLayer(layerCoordinate lc, neuronConfigureFunction<ExtraDataT>, bool input = 0, bool output = 0);
 
@@ -195,7 +217,7 @@ public://Fonctions de calcul
 
 
 private://(Sous)Fonctions de construction
-void buildDimensions();
+    void build();
 
 
 
@@ -206,8 +228,8 @@ private://Variables organisatrices à partir desquelles on génère le reste.
     std::map <layerCoordinate, std::vector <neuron<ExtraDataT>>, layerCoordinateCmp>
         neurons;
 
-    std::map <neuronCoordinate, std::map <neuronCoordinate, double, neuronCoordinateCmp>, neuronCoordinateCmp>
-        links;
+public :std::map <neuronCoordinate, std::map <neuronCoordinate, double, neuronCoordinateCmp>, neuronCoordinateCmp>
+        links;///make this section private again when debugging is finished
     std::map <neuronCoordinate, std::map <size_t, double>, neuronCoordinateCmp>
         selfLinks;
 
@@ -237,7 +259,7 @@ private://generated attributes
 
 public:
 
-    interComputationNeuronAlterationFunction<ExtraDataT> c_interComputationNeuronAlterationFunction;
+    interComputationNeuronAlterationFunction<ExtraDataT> c_interComputationNeuronAlterationFunction;///change constructor to initialize to an empty inline function
     void setInterComputationNeuronAlterationFunction(interComputationNeuronAlterationFunction<ExtraDataT>);
 
 
@@ -252,6 +274,9 @@ private://computation time Attribute
 public://computing
 
     layerFeed assertion(layerFeed input);//default is forwardState
+
+private:
+    layerFeed internal_assertion(layerFeed input);
 };
 
 
@@ -260,18 +285,21 @@ public://computing
 
 
 
-
 template <typename ExtraDataT>
-void neuralNetwork<ExtraDataT>::createLink(neuronCoordinate &c1, neuronCoordinate &c2, double initialWeight)//to modify to add recursive connection
+void neuralNetwork<ExtraDataT>::createLink(const neuronCoordinate &c1, const neuronCoordinate &c2, double initialWeight)//to modify to add recursive connection
 {
     //assert(!layerCoordinateCmp(c2.first, c1.first));
-    assert(neuronCoordinateCmp::compLayer(c1, c2));
-    assert(!links[c1].count(c2));
+    assert(neuronCoordinateCmp::compLayer(c1, c2));//non recursive
+
+    auto &a = links[c1];
+    assert(!a.count(c2));
+
     links[c1][c2] = initialWeight;
     neurons[c1.first][c1.second].linked = 1;
     neurons[c2.first][c2.second].linked = 1;
-    auto toPush = std::make_pair(&neurons[c2.first][c2.second]
-        , links[c1][c2]);
+    std::pair <neuron<ExtraDataT>*, double*> toPush;
+    toPush = std::make_pair(&neurons[c2.first][c2.second]
+        , &links[c1][c2]);
     neurons[c1.first][c1.second].next.push_back(toPush);
     toPush.first = &neurons[c1.first][c1.second];
     neurons[c2.first][c2.second].previous.push_back(toPush);
@@ -294,13 +322,17 @@ template <typename ExtraDataT>
 void neuralNetwork<ExtraDataT>::addLayer(std::vector <size_t> dims, layerCoordinate lc, bool input, bool output, neuronConfigureFunction<ExtraDataT> f)
 {
     size_t upBound = totalSize(dims);
-    if((!lc.first) && (!lc.second))
+    if((!lc))
     {
         if(!neurons.empty())
-            lc = (neurons.end()--)->first, lc.first++;
+        {
+            lc = (--neurons.end())->first;
+            lc++;
+        }
         else
-            lc.first = 0, lc.second = 1;
+            lc = 0;
     }
+    dimensions[lc] = dims;
     layersInformationInputOutput[lc].first = input;
     layersInformationInputOutput[lc].second = output;
     layersTotalNumberOfNeuron[lc] = totalSize(dims);
@@ -368,13 +400,13 @@ void neuralNetwork<ExtraDataT>::alterLayer(layerCoordinate lc, neuronConfigureFu
 
 
 template <typename ExtraDataT>
-void neuralNetwork<ExtraDataT>::connectLayers(layerCoordinate feedingLayer, layerCoordinate fedLayer
+void neuralNetwork<ExtraDataT>::connectLayers(layerCoordinate feedingLayer, layerCoordinate fedLayer///non recursive
     , layersConnectFunction connections)
 {
-    auto c = connections();
+    auto c = connections(dimensions[feedingLayer], dimensions[fedLayer]);
     for(auto a : c)
-        createLink(std::make_pair(a.first.first, feedingLayer)
-            , std::make_pair(a.first.second, fedLayer)
+        createLink(std::make_pair(feedingLayer, a.first.first)
+            , std::make_pair(fedLayer, a.first.second)
             , a.second);
 }
 
@@ -392,6 +424,15 @@ void neuralNetwork<ExtraDataT>::connectLayersRecursive(layerCoordinate feedingLa
         createLink(std::make_pair(a.first.first, feedingLayer));
 }
 */
+
+
+
+
+template <typename ExtraDataT>
+void neuralNetwork<ExtraDataT>::build()///implement
+{
+
+}
 
 
 
@@ -457,7 +498,7 @@ std::vector <size_t> neuralNetwork<ExtraDataT>::reverseOrderCumulativeSize(std::
 
 
 template <typename ExtraDataT>
-neuralNetwork<ExtraDataT>::neuralNetwork(const neuralNetwork& nn):
+neuralNetwork<ExtraDataT>::neuralNetwork(neuralNetwork& nn):
 neurons(nn.neurons),
 dimensions(nn.dimensions),
 layersInformationInputOutput(nn.layersInformationInputOutput),
@@ -470,6 +511,9 @@ c_interComputationNeuronAlterationFunction(nn.c_interComputationNeuronAlteration
     cycle = 0;
     errorIndicator = 0;
     backPropagating = 0;
+    for(auto a : nn.links)
+        for(auto b : a.second)
+                createLink(a.first, b.first, b.second);
 }
 
 
@@ -504,7 +548,7 @@ void callback_sucessiveLayers(std::function<std::pair<layerFeed, T*>(size_t, siz
 
 template <typename ExtraDataT>
 neuralNetwork<ExtraDataT>::neuralNetwork():
-c_interComputationNeuronAlterationFunction(0)
+c_interComputationNeuronAlterationFunction(emptyInterComputationNeuronAlterationFunction<ExtraDataT>)
 {
     cycle = 0;
     errorIndicator = 0;
@@ -521,27 +565,59 @@ c_interComputationNeuronAlterationFunction(0)
 template <typename ExtraDataT>
 layerFeed neuralNetwork<ExtraDataT>::assertion(layerFeed input)
 {
+    neuralNetwork t(*this);
+    return t.internal_assertion(input);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+template <typename ExtraDataT>
+layerFeed neuralNetwork<ExtraDataT>::internal_assertion(layerFeed input)
+{
     layerFeed ret;
     assert(computing.try_lock());
-    buildDimensions();
+    build();
 
-    for(std::pair<layerCoordinate, std::vector <double>> &a : input)
+    for(auto &a : neurons)
+        for(auto &b : a.second)
+            b();
+
+    for(std::pair<layerCoordinate, std::vector <double>> a : input)
         for(size_t i = 0; i < a.second.size(); ++i)
             assert(layersInformationInputOutput[a.first].first)
             , neurons[a.first][i].forwardValue = a.second[i];
 
-    for(std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>> &a : neurons)
-        for(neuron<ExtraDataT> &b : a.second)
-            b++;
+    for(auto/*std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>>*/ &a : neurons)
+        /*for(size_t i = 0; i < a.second.size(); i++)*/for(neuron<ExtraDataT> &b : a.second)
+            /*a.second[i]++;*/b++;
 
-    for(std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>> &a : neurons)
+    for(std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>> a : neurons)
+    {
+        if(!(layersInformationInputOutput[a.first].second))
+            continue;
         for(neuron<ExtraDataT> &b : a.second)
             ret[a.first].push_back(b.forwardValue);
+    }
 
-    buildDimensions();
+    build();
     computing.unlock();
-    return ret;
-}
+    return ret;}
+
+
+
+
+
+
+
 
 
 
