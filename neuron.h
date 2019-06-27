@@ -208,6 +208,7 @@ public://Membres
     inline void operator++();//calls c_forwardCompute
     inline void operator++(int){this->operator++();}//calls c_forwardCompute
     inline void operator--();//calls c_backwardCompute
+    inline void operator--(int){this->operator--();}//calls c_forwardCompute
 
 
 };

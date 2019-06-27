@@ -42,16 +42,16 @@ int main(int, char *[])
     nn.links[neuronCoordinate(0, 1)][neuronCoordinate(1, 0)] = -1;
 
     lf[0] = v;
-    auto result = nn.assertion(lf);
+    auto result = nn.internal_assertion(lf);
 
     lf[0][0] = 0;
-    result = nn.assertion(lf);
+    result = nn.internal_assertion(lf);
 
     lf[0][1] = 0;
-    result = nn.assertion(lf);
+    result = nn.internal_assertion(lf);
 
     lf[0][0] = 1;
-    result = nn.assertion(lf);
+    result = nn.internal_assertion(lf);
 
     for(auto a : result)
     {

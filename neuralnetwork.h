@@ -1,6 +1,7 @@
 #ifndef NEURALNETWORK_H
 #define NEURALNETWORK_H
 
+
 ///This library only support DAG type neural network. For instance, it doesnt support recurrent neural network.
 
 ///too frequents agregations decrease efficiency and precision of recurrent network, especially the one with link to old self-history
@@ -29,6 +30,19 @@
 ///normalize callback is the inter half computation normalization. Think of changing name, so we can use this name.
 
 ///evaluate training end and neuron reset callback
+
+
+
+
+
+
+
+
+
+///dont use the main neural network for the training
+
+
+
 
 
 
@@ -265,7 +279,7 @@ public:
 
 private://computation time Attribute
 
-    double errorIndicator;
+    double errorIndicator;//éventuellement ajouter un historique
     bool backPropagating;
     size_t cycle;
     std::mutex computing;
@@ -275,7 +289,12 @@ public://computing
 
     layerFeed assertion(layerFeed input);//default is forwardState
 
-private:
+    std::vector <neuralNetwork> getBindNeuralNetwork(size_t n);
+
+    layerFeed forCompute(layerFeed input);
+    void backCompute(layerFeed input, double errorIndicator);
+
+//private:
     layerFeed internal_assertion(layerFeed input);
 };
 
@@ -589,12 +608,14 @@ layerFeed neuralNetwork<ExtraDataT>::internal_assertion(layerFeed input)
 
     for(auto &a : neurons)
         for(auto &b : a.second)
-            b();
+            b();//pourquoi ça ne resettais pas les valeurs ??
 
     for(std::pair<layerCoordinate, std::vector <double>> a : input)
+    {
+        assert(layersInformationInputOutput[a.first].first);
         for(size_t i = 0; i < a.second.size(); ++i)
-            assert(layersInformationInputOutput[a.first].first)
-            , neurons[a.first][i].forwardValue = a.second[i];
+            neurons[a.first][i].forwardValue = a.second[i];
+    }
 
     for(auto/*std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>>*/ &a : neurons)
         /*for(size_t i = 0; i < a.second.size(); i++)*/for(neuron<ExtraDataT> &b : a.second)
@@ -610,10 +631,125 @@ layerFeed neuralNetwork<ExtraDataT>::internal_assertion(layerFeed input)
 
     build();
     computing.unlock();
-    return ret;}
+    return ret;
+}
 
 
 
+
+
+
+
+
+
+
+
+template <typename ExtraDataT>
+std::vector <neuralNetwork<ExtraDataT>> neuralNetwork<ExtraDataT>::getBindNeuralNetwork(size_t n)
+{
+    std::vector <neuralNetwork<ExtraDataT>> ret;
+    for(size_t i = 0; i < n; ++i)
+        ret.emplace_back(*this);
+    for(auto &d : ret)
+    {
+        for(auto &neur : d.neurons)
+        {
+            for(auto &link : neur.second.next)
+            {
+                link.second = &(links[neur.first][link.first->nCoordinate]);
+            }
+            for(auto &link : neur.second.prev)
+            {
+                link.second = &(links[link.first->nCoordinate][neur.first]);
+            }
+        }
+    }
+    return ret;
+}
+
+
+template <typename ExtraDataT>
+layerFeed neuralNetwork<ExtraDataT>::forCompute(layerFeed input)
+{
+    layerFeed ret;
+
+    build();
+
+
+    assert(computing.try_lock());
+    backPropagating = 0;
+
+
+
+
+    for(std::pair<layerCoordinate, std::vector <double>> a : input)
+    {
+        assert(layersInformationInputOutput[a.first].first);
+        for(size_t i = 0; i < a.second.size(); ++i)
+            neurons[a.first][i].forwardValue = a.second[i];
+    }
+
+    for(auto/*std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>>*/ &a : neurons)
+        /*for(size_t i = 0; i < a.second.size(); i++)*/for(neuron<ExtraDataT> &b : a.second)
+            /*a.second[i]++;*/b++;
+
+    for(std::pair <layerCoordinate, std::vector <neuron<ExtraDataT>>> a : neurons)
+    {
+        if(!(layersInformationInputOutput[a.first].second))
+            continue;
+        for(neuron<ExtraDataT> &b : a.second)
+            ret[a.first].push_back(b.forwardValue);
+    }
+
+
+    for(auto &a : neurons)
+        for(auto &b : a.second)
+            b();
+
+
+    computing.unlock();
+
+
+    build();
+
+    return ret;
+}
+
+
+template <typename ExtraDataT>
+void neuralNetwork<ExtraDataT>::backCompute(layerFeed backInput, double errorIndicator_p)
+{
+    build();
+
+
+    assert(computing.try_lock());
+    backPropagating = 1;
+    errorIndicator = errorIndicator_p;
+
+
+    for(auto &a : backInput)
+    {
+        assert(layersInformationInputOutput[a.first].second);
+        for(size_t i = 0; i < a.second.size(); ++i)
+            neurons[a.first][i].backwardValue = a.second[i];
+    }
+
+
+    for(auto &a : neurons)
+        for(auto &b : a.second)
+            b();
+
+    for(auto &a : neurons)
+        for(auto &b : a.second)
+            b();
+
+
+    computing.unlock();
+    ++cycle;
+
+
+    build();
+}
 
 
 
