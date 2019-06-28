@@ -8,6 +8,11 @@
 #include <cassert>
 #include <map>
 
+
+
+namespace jo_nn
+{
+
 ///This library only support DAG type neural network. For instance, it doesnt support recurrent neural network.
 //expand to non dag with my idea
 //expand to general history connection
@@ -382,7 +387,7 @@ neuron<ExtraDataT>::neuron(const neuron&n):
 
 
 
-
+}
 
 
 #endif // NEURON_H

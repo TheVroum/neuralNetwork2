@@ -25,17 +25,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
         main.cpp \
-    templateneuronscale.cpp \
-    sync.cpp \
-    randomness.cpp \
-    templatelargerscale.cpp
+    randomness.cpp
 
 HEADERS += \
     neuralnetwork.h \
     neuron.h \
-    templateneuronscale.h \
-    sync.h \
     randomness.h \
-    templatelargerscale.h
+    callbackstemplate.h \
+    templates.h
 
 FORMS +=

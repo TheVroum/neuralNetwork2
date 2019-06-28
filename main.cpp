@@ -1,17 +1,15 @@
 #include <iostream>
+#include <thread>
 
 
 
 
+#include "neuron.h"
+#include "callbackstemplate.h"
+#include "templates.h"
+#include "neuralnetwork.h"///always include in this order.
 
 
-
-
-
-
-
-
-#include "templatelargerscale.h"
 
 
 ///important : créer des spécialisations direcrement
@@ -25,40 +23,87 @@
 
 
 
-int main(int, char *[])
-{
-    assert(std::isnan(NAN));//std::numeric_limits::quiet_NaN
 
-    neuralNetwork<int> nn;
+
+
+
+void trainingFunc(jo_nn::neuralNetwork<int> *nn)
+{
+    jo_nn::layerFeed layerBackFeed;
+    layerBackFeed[2].resize(1);
+
+    for(size_t i = 0; i < 1000; ++i)
+    {
+        bool a = i % 2, b = (i / 2) % 2;
+
+        std::vector<double> v(2);
+        v[0] = a;
+        v[1] = b;
+
+        jo_nn::layerFeed lf;
+        lf[0] = v;
+
+        layerBackFeed[2][0] = (a ^ b) - nn->forCompute(lf)[2][0];
+        //double diff = abs(layerBackFeed[2][0]);
+        nn->backCompute(layerBackFeed, NAN);
+    }
+}
+
+
+
+
+
+
+int main(int, char *[])//au pire je peux tester directement en mono thread
+{
+    jo_nn::neuralNetwork<int> nn;
     nn.addLayer({2}, 0, 1, 0);
     nn.addLayer({2});
-    nn.addLayer({1}, 0, 0, 1, defaultSoftmax<int>);
-    nn.connectLayers(0, 1, defaultDense<int>);
-    nn.connectLayers(1, 2, defaultDense<int>);
-    std::vector<double> v(2, 1);
-    layerFeed lf;
+    nn.addLayer({1}, 0, 0, 1/*, jo_nn::defaultSoftmax<int>*/);
+    nn.connectLayers(0, 1, jo_nn::defaultDense<int>);
+    nn.connectLayers(1, 2, jo_nn::defaultDense<int>);
 
-    nn.links[neuronCoordinate(0, 0)][neuronCoordinate(1, 1)] = -1;
-    nn.links[neuronCoordinate(0, 1)][neuronCoordinate(1, 0)] = -1;
+    std::vector <jo_nn::neuralNetwork<int>*> result;
+    result = nn.getBindNeuralNetwork(4);
 
-    lf[0] = v;
-    auto result = nn.internal_assertion(lf);
+    trainingFunc(result[0]);
+    //std::thread a(trainingFunc, result[0]);
+    std::thread *b = new std::thread(trainingFunc, result[1]);
+    std::thread *c = new std::thread(trainingFunc, result[2]);
+    std::thread *d = new std::thread(trainingFunc, result[3]);
 
-    lf[0][0] = 0;
-    result = nn.internal_assertion(lf);
+    /*for(auto a : result)
+        delete a;*/
 
-    lf[0][1] = 0;
-    result = nn.internal_assertion(lf);
+/*
+    a.detach();
+    b.detach();
+    c.detach();
+    d.detach();
 
-    lf[0][0] = 1;
-    result = nn.internal_assertion(lf);
+    a.~thread();
+    b.~thread();
+    c.~thread();
+    d.~thread();
+*/
 
-    for(auto a : result)
+    //a. join();
+    b->join();
+    c->join();
+    d->join();
+
+    for(size_t i = 0; i < 4; ++i)
     {
-        for(auto b : a.second)
-            std::cout << b << std::endl;
-        std::cout << std::endl;
+        std::vector<double> v(2);
+        v[0] = i % 2;
+        v[1] = (i / 2) % 2;
+
+        jo_nn::layerFeed lf;
+        lf[0] = v;
+        std::cout << nn.assertion(lf)[2][0];
     }
+
+    __asm("int $3");
 
     return 0;
 

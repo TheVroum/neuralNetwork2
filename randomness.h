@@ -6,6 +6,8 @@
 #include <vector>
 
 
+namespace jo_nn
+{
 //là je fais une version qui se re remplit,
 //mais il faudrait en faire une qui a un pool de
 //1000 et les utilise en boucle
@@ -33,7 +35,7 @@ private:
 
 
 
-
+}
 
 
 

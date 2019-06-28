@@ -35,7 +35,7 @@
 
 
 
-
+///srand must be called  if the randomness has tobe controlled (here rand() is called)
 
 
 
@@ -59,6 +59,8 @@
 
 
 
+namespace jo_nn
+{
 
 
 
@@ -81,20 +83,14 @@ struct neuronConstructorParameters
 
 
 
-template <typename ExtraDataT>
-neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &);
-
-
-
-
 
 
 
 typedef std::pair <layerCoordinate, size_t> neuronCoordinate;
 
 
-template <typename ExtraDataT>
-using neuronConfigureFunction = std::function <neuronConstructorParameters<ExtraDataT>(const neuronCoordinate &n)>;
+/*template <typename ExtraDataT>
+using neuronConfigureFunction = std::function <neuronConstructorParameters<ExtraDataT>(const neuronCoordinate &n)>;*/
 
 
 
@@ -145,21 +141,15 @@ typedef std::map<layerCoordinate, std::vector <double>, layerCoordinateCmp> laye
 
 
 template <typename ExtraDataT>
-using interComputationNeuronAlterationFunction = std::function<void(neuron<ExtraDataT>* target, neuronCoordinate c, size_t cycle)>;//necessitate tu use the unique id giver wrapper
+using interComputationNeuronAlterationFunction = std::function<void(neuron<ExtraDataT>* target, neuronCoordinate c, size_t cycle)>;//necessitate to use the unique id giver wrapper (not created yet)
+//so cycle is unique
 
 
 
 
-
-template <typename ExtraDataT>
-inline void emptyInterComputationNeuronAlterationFunction
-    (neuron<ExtraDataT>* target, neuronCoordinate c, size_t cycle);
 
 
 ///check that c_interComputationNeuronAlterationFunction is not null before calling
-
-
-
 
 
 
@@ -194,8 +184,8 @@ public:
 
 
     ///JUST BELOW :
-    void addLayer(std::vector <size_t>, layerCoordinate lc = 0, bool input = 0, bool output = 0, neuronConfigureFunction<ExtraDataT> = defaultRelu<ExtraDataT>);
-    void addLayer(std::initializer_list <size_t>, layerCoordinate lc = 0, bool input = 0, bool output = 0, neuronConfigureFunction<ExtraDataT> = defaultRelu<ExtraDataT>);
+    void addLayer(std::vector <size_t>, layerCoordinate lc = 0, bool input = 0, bool output = 0, neuronConfigureFunction<ExtraDataT> = /*defaultRelu<ExtraDataT>*/0);
+    void addLayer(std::initializer_list <size_t>, layerCoordinate lc = 0, bool input = 0, bool output = 0, neuronConfigureFunction<ExtraDataT> = /*defaultRelu<ExtraDataT>*/0);
 
     void alterLayer(layerCoordinate lc, neuronConfigureFunction<ExtraDataT>, bool input = 0, bool output = 0);
 
@@ -281,7 +271,7 @@ private://computation time Attribute
 
     double errorIndicator;//éventuellement ajouter un historique
     bool backPropagating;
-    size_t cycle;
+    size_t cycle;//not that this cycle only take account of the current neural network, in case of multithread
     std::mutex computing;
 
 
@@ -289,7 +279,7 @@ public://computing
 
     layerFeed assertion(layerFeed input);//default is forwardState
 
-    std::vector <neuralNetwork> getBindNeuralNetwork(size_t n);
+    std::vector <neuralNetwork<ExtraDataT>*> getBindNeuralNetwork(size_t n);
 
     layerFeed forCompute(layerFeed input);
     void backCompute(layerFeed input, double errorIndicator);
@@ -336,10 +326,27 @@ void neuralNetwork<ExtraDataT>::createLink(const neuronCoordinate &c1, const neu
 
 
 
+template <typename ExtraDataT>
+neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &, const std::vector<size_t>*)
+{
+    neuronConstructorParameters<ExtraDataT> ret;
+    ret.c_normalize_p = normalizeNoHistory<ExtraDataT>;
+    ret.c_activationFunction_p = relu;
+    ret.c_activationFunctionDerivative_p = reluD;
+    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator;
+    ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
+    ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
+    ret.bias_p = -0.1;
+    ret.historySize = 0;
+    ret.droped = 0;
+    return ret;
+}
 
 template <typename ExtraDataT>
 void neuralNetwork<ExtraDataT>::addLayer(std::vector <size_t> dims, layerCoordinate lc, bool input, bool output, neuronConfigureFunction<ExtraDataT> f)
 {
+    if(!f)
+        f = defaultRelu<ExtraDataT>;
     size_t upBound = totalSize(dims);
     if((!lc))
     {
@@ -567,7 +574,7 @@ void callback_sucessiveLayers(std::function<std::pair<layerFeed, T*>(size_t, siz
 
 template <typename ExtraDataT>
 neuralNetwork<ExtraDataT>::neuralNetwork():
-c_interComputationNeuronAlterationFunction(emptyInterComputationNeuronAlterationFunction<ExtraDataT>)
+c_interComputationNeuronAlterationFunction(/*emptyInterComputationNeuronAlterationFunction<ExtraDataT>*/0)
 {
     cycle = 0;
     errorIndicator = 0;
@@ -645,22 +652,25 @@ layerFeed neuralNetwork<ExtraDataT>::internal_assertion(layerFeed input)
 
 
 template <typename ExtraDataT>
-std::vector <neuralNetwork<ExtraDataT>> neuralNetwork<ExtraDataT>::getBindNeuralNetwork(size_t n)
+std::vector <neuralNetwork<ExtraDataT>*> neuralNetwork<ExtraDataT>::getBindNeuralNetwork(size_t n)
 {
-    std::vector <neuralNetwork<ExtraDataT>> ret;
+    std::vector <neuralNetwork<ExtraDataT>*> ret;
     for(size_t i = 0; i < n; ++i)
-        ret.emplace_back(*this);
+        ret.push_back(new neuralNetwork<ExtraDataT>(*this));
     for(auto &d : ret)
     {
-        for(auto &neur : d.neurons)
+        for(auto &vec : d->neurons)
         {
-            for(auto &link : neur.second.next)
+            for(auto &neur : vec.second)
             {
-                link.second = &(links[neur.first][link.first->nCoordinate]);
-            }
-            for(auto &link : neur.second.prev)
-            {
-                link.second = &(links[link.first->nCoordinate][neur.first]);
+                for(auto &link : neur.next)
+                {
+                    link.second = &(links[neur.nCoordinate][link.first->nCoordinate]);
+                }
+                for(auto &link : neur.previous)
+                {
+                    link.second = &(links[link.first->nCoordinate][neur.nCoordinate]);
+                }
             }
         }
     }
@@ -735,9 +745,12 @@ void neuralNetwork<ExtraDataT>::backCompute(layerFeed backInput, double errorInd
     }
 
 
-    for(auto &a : neurons)
-        for(auto &b : a.second)
-            b();
+    for(auto a = neurons.end(); a != neurons.begin(); )
+    {
+        a--;
+        for(auto &b : a->second)
+            b--;
+    }
 
     for(auto &a : neurons)
         for(auto &b : a.second)
@@ -754,7 +767,7 @@ void neuralNetwork<ExtraDataT>::backCompute(layerFeed backInput, double errorInd
 
 
 
-
+}
 
 
 #endif // NEURALNETWORK_H

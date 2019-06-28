@@ -1,5 +1,11 @@
 #include "randomness.h"
 
+
+
+namespace jo_nn
+{
+
+
 normalness::normalness(std::function <int()> fp):
     f(fp)
 {
@@ -42,3 +48,4 @@ double normalness::operator()()
 
 
 
+}
