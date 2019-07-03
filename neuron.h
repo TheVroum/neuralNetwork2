@@ -333,7 +333,7 @@ inline void neuron<ExtraDataT>::normalize(bool backward/*or forward if = 0*/)
 template <typename ExtraDataT>
 inline void neuron<ExtraDataT>::operator()()
 {
-    normalize(/***/backPropagating.deref<bool>());
+    normalize(backPropagating.deref<bool>());
 }
 
 

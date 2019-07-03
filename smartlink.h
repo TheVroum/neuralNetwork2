@@ -134,6 +134,7 @@ void smartLinkPtingTo::link(smartLinkPtedTo&s, T* t)
     other = &s;
     offset = reinterpret_cast<char*>(t)
         - reinterpret_cast<char*>(other);
+    s.others.push_back(this);
 }
 
 
