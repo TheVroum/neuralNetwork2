@@ -22,6 +22,16 @@
 
 
 
+///fix the intercomputationneuronalteration callback who was null at a moment during runtime
+
+
+///check that all coordinates in callbacks are given through copy and not reference
+
+
+///remplacer les pointeurs par des biderecitonal links de mon cru
+
+
+using namespace jo_nn;
 
 
 
@@ -34,7 +44,12 @@ void trainingFunc(jo_nn::neuralNetwork<int> *nn)
 
     for(size_t i = 0; i < 1000; ++i)
     {
+        std::cout  << "\n"  << "\n";
+        if(!(i % 4))
+            std::cout << "\n" << "\n";
+
         bool a = i % 2, b = (i / 2) % 2;
+        std::cout << a << " ^ " << b << " = " << (a ^ b) << " (expected)" << "\n";
 
         std::vector<double> v(2);
         v[0] = a;
@@ -43,7 +58,9 @@ void trainingFunc(jo_nn::neuralNetwork<int> *nn)
         jo_nn::layerFeed lf;
         lf[0] = v;
 
-        layerBackFeed[2][0] = (a ^ b) - nn->forCompute(lf)[2][0];
+        double res = nn->forCompute(lf)[2][0];
+        std::cout << "Result : " << res << ".\tDiff : " << (a ^ b) - res << "." << std::endl;
+        layerBackFeed[2][0] = (a ^ b) - res;
         //double diff = abs(layerBackFeed[2][0]);
         nn->backCompute(layerBackFeed, NAN);
     }
@@ -53,44 +70,21 @@ void trainingFunc(jo_nn::neuralNetwork<int> *nn)
 
 
 
+std::vector <double*> visibilityVector;
 
 int main(int, char *[])//au pire je peux tester directement en mono thread
 {
     jo_nn::neuralNetwork<int> nn;
-    nn.addLayer({2}, 0, 1, 0);
-    nn.addLayer({2});
-    nn.addLayer({1}, 0, 0, 1/*, jo_nn::defaultSoftmax<int>*/);
+    nn.addLayer({2}, 0, 1, 0, jo_nn::defaultLkRelu<int, 200>);
+    nn.addLayer({2}, 0, 0, 0, jo_nn::defaultLkRelu<int, 200>);
+    nn.addLayer({1}, 0, 0, 1, jo_nn::defaultLkRelu/*defaultSoftmax*/<int>);
     nn.connectLayers(0, 1, jo_nn::defaultDense<int>);
     nn.connectLayers(1, 2, jo_nn::defaultDense<int>);
 
-    std::vector <jo_nn::neuralNetwork<int>*> result;
-    result = nn.getBindNeuralNetwork(4);
 
-    trainingFunc(result[0]);
-    //std::thread a(trainingFunc, result[0]);
-    std::thread *b = new std::thread(trainingFunc, result[1]);
-    std::thread *c = new std::thread(trainingFunc, result[2]);
-    std::thread *d = new std::thread(trainingFunc, result[3]);
-
-    /*for(auto a : result)
-        delete a;*/
-
-/*
-    a.detach();
-    b.detach();
-    c.detach();
-    d.detach();
-
-    a.~thread();
-    b.~thread();
-    c.~thread();
-    d.~thread();
-*/
-
-    //a. join();
-    b->join();
-    c->join();
-    d->join();
+    for(auto &a : nn.links)
+        for(auto &b : a.second)
+            visibilityVector.push_back(&(b.second));
 
     for(size_t i = 0; i < 4; ++i)
     {
@@ -100,8 +94,27 @@ int main(int, char *[])//au pire je peux tester directement en mono thread
 
         jo_nn::layerFeed lf;
         lf[0] = v;
-        std::cout << nn.assertion(lf)[2][0];
+        std::cout << nn.assertion(lf)[2][0] << "\t";
     }
+    std::cout << std::endl;
+
+
+    std::vector <jo_nn::neuralNetwork<int>*> trainers;
+    trainers = nn.getBindNeuralNetwork(1);
+
+    trainingFunc(trainers[0]);
+    std::cout << "\n" << "\n" << "\n" << "\n" << "\n" << "\n";
+    for(size_t i = 0; i < 4; ++i)
+    {
+        std::vector<double> v(2);
+        v[0] = i % 2;
+        v[1] = (i / 2) % 2;
+
+        jo_nn::layerFeed lf;
+        lf[0] = v;
+        std::cout << nn.assertion(lf)[2][0] << "\t";
+    }
+    std::cout << std::endl;
 
     __asm("int $3");
 

@@ -56,6 +56,7 @@
 
 
 #include "neuron.h"
+#include "smartlink.h"
 
 
 
@@ -152,7 +153,8 @@ using interComputationNeuronAlterationFunction = std::function<void(neuron<Extra
 ///check that c_interComputationNeuronAlterationFunction is not null before calling
 
 
-
+template <typename ExtraDataT>
+using neuronConfigureFunction = std::function <neuronConstructorParameters<ExtraDataT>(const neuronCoordinate n, const std::vector<size_t>*dimensionsOfTheLayer)>;
 
 
 template <//typename T/*ptr on structure that will be passed on assertion*/,
@@ -270,8 +272,11 @@ public:
 private://computation time Attribute
 
     double errorIndicator;//éventuellement ajouter un historique
+    smartLinkPtedTo slErrorIndicator;
     bool backPropagating;
+    smartLinkPtedTo slBackPropagating;
     size_t cycle;//not that this cycle only take account of the current neural network, in case of multithread
+    smartLinkPtedTo slCycle;
     std::mutex computing;
 
 
@@ -326,27 +331,14 @@ void neuralNetwork<ExtraDataT>::createLink(const neuronCoordinate &c1, const neu
 
 
 
-template <typename ExtraDataT>
-neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &, const std::vector<size_t>*)
-{
-    neuronConstructorParameters<ExtraDataT> ret;
-    ret.c_normalize_p = normalizeNoHistory<ExtraDataT>;
-    ret.c_activationFunction_p = relu;
-    ret.c_activationFunctionDerivative_p = reluD;
-    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator;
-    ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
-    ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
-    ret.bias_p = -0.1;
-    ret.historySize = 0;
-    ret.droped = 0;
-    return ret;
-}
+
 
 template <typename ExtraDataT>
 void neuralNetwork<ExtraDataT>::addLayer(std::vector <size_t> dims, layerCoordinate lc, bool input, bool output, neuronConfigureFunction<ExtraDataT> f)
 {
+    std::function <neuronConstructorParameters<ExtraDataT>(const neuronCoordinate &, const std::vector<size_t>*)> a;
     if(!f)
-        f = defaultRelu<ExtraDataT>;
+        f = (defaultRelu<ExtraDataT>);
     size_t upBound = totalSize(dims);
     if((!lc))
     {
@@ -366,7 +358,7 @@ void neuralNetwork<ExtraDataT>::addLayer(std::vector <size_t> dims, layerCoordin
     std::vector <neuron<ExtraDataT>> &v = neurons[lc];
     for(size_t i = 0; i < upBound; ++i)
     {
-        auto param = f(std::make_pair(lc, i));
+        auto param = f(std::make_pair(lc, i), &dimensions[lc]);
         v.emplace_back(param.c_normalize_p
             , param.c_activationFunction_p
             , param.c_activationFunctionDerivative_p
@@ -377,9 +369,9 @@ void neuralNetwork<ExtraDataT>::addLayer(std::vector <size_t> dims, layerCoordin
             , param.droped
             , param.historySize
 
-            , &cycle
-            , &errorIndicator
-            , &backPropagating
+            , slCycle, &cycle
+            , slErrorIndicator, &errorIndicator
+            , slBackPropagating, &backPropagating
             , std::make_pair(lc, i)
 
             , param.ExtraData_p);
@@ -401,7 +393,7 @@ void neuralNetwork<ExtraDataT>::alterLayer(layerCoordinate lc, neuronConfigureFu
     layersInformationInputOutput[lc].second = output;
     for(size_t i = 0; i < neurons[lc].size(); ++i)
     {
-        auto param = f(std::make_pair(lc, i));
+        auto param = f(std::make_pair(lc, i), dimensions[lc]);
         neurons[lc].set(param.c_normalize_p
               , param.c_activationFunction_p
               , param.c_activationFunctionDerivative_p
@@ -411,9 +403,9 @@ void neuralNetwork<ExtraDataT>::alterLayer(layerCoordinate lc, neuronConfigureFu
               , param.bias_p
               , param.historySize
 
-              , &cycle
-              , &errorIndicator
-              , &backPropagating
+              , slCycle, &cycle
+              , slErrorIndicator, &errorIndicator
+              , slBackPropagating, &backPropagating
               , std::make_pair(lc, i)
 
               , param.ExtraData_p);
@@ -574,11 +566,16 @@ void callback_sucessiveLayers(std::function<std::pair<layerFeed, T*>(size_t, siz
 
 template <typename ExtraDataT>
 neuralNetwork<ExtraDataT>::neuralNetwork():
-c_interComputationNeuronAlterationFunction(/*emptyInterComputationNeuronAlterationFunction<ExtraDataT>*/0)
+c_interComputationNeuronAlterationFunction(emptyInterComputationNeuronAlterationFunction<ExtraDataT>)
 {
     cycle = 0;
     errorIndicator = 0;
     backPropagating = 0;
+    //Below not fixed because neurons is empty (?) at this moment of the object construction
+    /*for(auto &a : neurons)
+        for(auto &b : a.second)
+            b.cycle.link() = &cycle, b.errorIndicator = &errorIndicator,
+            b.backPropagating = &backPropagating;*/
 }
 
 

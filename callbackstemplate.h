@@ -9,6 +9,8 @@
 
 
 
+namespace jo_nn
+{
 
 
 template <typename ExtraDataT>
@@ -17,11 +19,8 @@ struct neuronConstructorParameters;
 
 
 
-class layerCoordinate;
 typedef std::pair <layerCoordinate, size_t> neuronCoordinate;
 
-template <typename ExtraDataT>
-class neuron;
 
 
 typedef std::pair<std::pair<size_t, size_t>, double/*initial weight*/> layerConnections;
@@ -40,9 +39,6 @@ typedef std::pair<std::pair<size_t, size_t>, double/*initial weight*/> layerConn
 
 
 
-
-namespace jo_nn
-{
 
 ///Callback type 1 and 2 :
 /// Activation function, and her derivative.
@@ -106,7 +102,7 @@ using interComputationNeuronAlterationFunction = std::function<void(neuron<Extra
 ///
 ///
 template <typename ExtraDataT>
-using neuronConfigureFunction = std::function <neuronConstructorParameters<ExtraDataT>(const neuronCoordinate &n)>;
+using neuronConfigureFunction = std::function <neuronConstructorParameters<ExtraDataT>(const neuronCoordinate n, const std::vector<size_t>*dimensionsOfTheLayer)>;
 
 
 

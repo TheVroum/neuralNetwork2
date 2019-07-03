@@ -12,7 +12,6 @@
 
 
 
-typedef std::pair<std::pair<size_t, size_t>, double/*initial weight*/> layerConnections;
 
 
 
@@ -24,6 +23,7 @@ typedef std::pair<std::pair<size_t, size_t>, double/*initial weight*/> layerConn
 namespace jo_nn
 {
 
+typedef std::pair<std::pair<size_t, size_t>, double/*initial weight*/> layerConnections;
 
 ///Be careful to inline the higly used callbacks
 
@@ -65,18 +65,40 @@ inline double reluD(double input)
 }
 
 
+template <size_t leakyCoeff/*millieme*/>
+inline double lkRelu(double input)
+{
+    if(input < 0)
+        return input * leakyCoeff;
+    else
+        return input;
+}
 
+template <size_t leakyCoeff/*millieme*/>
+inline double lkReluD(double input)
+{
+    if(input < 0)
+        return leakyCoeff;
+    else
+        return 1;
+}
+
+
+
+
+
+template <size_t learningRate/*millionieme*/>
 inline double defaultcoeffDerivativeCalculator(size_t/* cycle*//*parameter name commented to prevent warnings, uncomment for use with your own callback*/
     , double coeff
     , double propagatingError, double /*errorIndicator*/
     , neuronCoordinate /*nCoordinate*/)
 {
     if(/*signbit(*/propagatingError * coeff/*)*/ < 0)
-        return propagatingError;
+        return propagatingError * (learningRate / 1000000.0);
     if(abs(coeff) < 10)
-        return propagatingError;
+        return propagatingError * (learningRate / 1000000.0);
     else
-        return propagatingError * 10 / coeff;
+        return propagatingError / (coeff * (100000.0 / learningRate));
 }
 
 template <typename ExtraDataT>
@@ -91,7 +113,7 @@ void normalizeNoHistory(bool backward, neuron<ExtraDataT>* target)//bias added i
 
 
 template <typename ExtraDataT>
-void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &sc//no self recurrency
+void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &//sc//no self recurrency
 //bias added here
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
@@ -150,7 +172,7 @@ std::vector <layerConnections> defaultDense(std::vector <size_t> feederDim, std:
 
 
 
-
+/*
 
 template <typename ExtraDataT>
 neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &, const std::vector<size_t>*)
@@ -167,9 +189,41 @@ neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &, co
     ret.droped = 0;
     return ret;
 }
+*/
 
 
 
+template <typename ExtraDataT>
+neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate, const std::vector<size_t>*)
+{
+    neuronConstructorParameters<ExtraDataT> ret;
+    ret.c_normalize_p = normalizeNoHistory<ExtraDataT>;
+    ret.c_activationFunction_p = relu;
+    ret.c_activationFunctionDerivative_p = reluD;
+    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator<100>;
+    ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
+    ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
+    ret.bias_p = -0.1;
+    ret.historySize = 0;
+    ret.droped = 0;
+    return ret;
+}
+
+template <typename ExtraDataT, size_t leakyCoeff = 200/*millième*/>
+neuronConstructorParameters<ExtraDataT> defaultLkRelu(const neuronCoordinate, const std::vector<size_t>*)
+{
+    neuronConstructorParameters<ExtraDataT> ret;
+    ret.c_normalize_p = normalizeNoHistory<ExtraDataT>;
+    ret.c_activationFunction_p = lkRelu<leakyCoeff>;
+    ret.c_activationFunctionDerivative_p = lkReluD<leakyCoeff>;
+    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator<100>;
+    ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
+    ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
+    ret.bias_p = -0.1;
+    ret.historySize = 0;
+    ret.droped = 0;
+    return ret;
+}
 
 
 
@@ -209,7 +263,7 @@ inline double myOutputD(double input)
 
 
 template <typename ExtraDataT>
-neuronConstructorParameters<ExtraDataT> defaultSoftmax(const neuronCoordinate &, const std::vector<size_t>*)
+neuronConstructorParameters<ExtraDataT> defaultSoftmax(const neuronCoordinate, const std::vector<size_t>*)
 {
     neuronConstructorParameters<ExtraDataT> ret;
     ret.c_normalize_p = normalizeNoHistory<ExtraDataT>;
