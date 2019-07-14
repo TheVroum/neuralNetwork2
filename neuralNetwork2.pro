@@ -32,15 +32,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
         main.cpp \
-    randomness.cpp \
-    smartlink.cpp
+    randomness.cpp
 
 HEADERS += \
     neuralnetwork.h \
     neuron.h \
     randomness.h \
     callbackstemplate.h \
-    templates.h \
-    smartlink.h
+    templates.h
 
 FORMS +=

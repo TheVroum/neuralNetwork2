@@ -8,6 +8,7 @@
 
 #include "randomness.h"
 #include "callbackstemplate.h"
+#include "neuron.h"
 
 
 
@@ -69,7 +70,7 @@ template <size_t leakyCoeff/*millieme*/>
 inline double lkRelu(double input)
 {
     if(input < 0)
-        return input * leakyCoeff;
+        return input * leakyCoeff / 1000;
     else
         return input;
 }
@@ -78,7 +79,7 @@ template <size_t leakyCoeff/*millieme*/>
 inline double lkReluD(double input)
 {
     if(input < 0)
-        return leakyCoeff;
+        return leakyCoeff / 1000;
     else
         return 1;
 }
@@ -93,9 +94,9 @@ inline double defaultcoeffDerivativeCalculator(size_t/* cycle*//*parameter name 
     , double propagatingError, double /*errorIndicator*/
     , neuronCoordinate /*nCoordinate*/)
 {
-    if(/*signbit(*/propagatingError * coeff/*)*/ < 0)
+    if(/*signbit(*/propagatingError * coeff/*)*/ < 0.0)
         return propagatingError * (learningRate / 1000000.0);
-    if(abs(coeff) < 10)
+    if(std::abs(coeff) < 10.0)
         return propagatingError * (learningRate / 1000000.0);
     else
         return propagatingError / (coeff * (100000.0 / learningRate));
@@ -117,7 +118,10 @@ void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &//sc/
 //bias added here
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
-    , neuron<ExtraDataT>* n)
+    , neuron<ExtraDataT>* n
+    , neuronCoordinate
+    , double
+    , size_t)
 {
     if(!n->droped)
     {
@@ -136,7 +140,10 @@ template <typename ExtraDataT>///recurrent coefficient not handled here ! Add th
 void defaultBackwardCompute(const std::vector <std::pair<size_t, double*>> &//no self recurrency
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
-    , neuron<ExtraDataT>* n)
+    , neuron<ExtraDataT>* n
+    , neuronCoordinate nCoordinate
+    , double errorIndicator
+    , size_t cycle)
 {
     if(!n->droped)
     {
@@ -145,14 +152,14 @@ void defaultBackwardCompute(const std::vector <std::pair<size_t, double*>> &//no
             n->backwardValue += (*(a.second)) * a.first->backwardValue;
         n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
         for(auto &a : pr)
-            (*(a.second)) += n->wrapperCoeffDerivativeCalculator(*(a.second));//automatically gets n->backwardValue
+            (*(a.second)) += n->wrapperCoeffDerivativeCalculator(*(a.second), nCoordinate, errorIndicator, cycle);//automatically gets n->backwardValue
     }
 }
 
 
 template <typename ExtraDataT>
 inline void emptyInterComputationNeuronAlterationFunction
-    (neuron<ExtraDataT>*, neuronCoordinate, size_t)
+    (neuron<ExtraDataT>*, neuronCoordinate, double, size_t)
 {}
 
 template <typename ExtraDataT>
@@ -162,7 +169,7 @@ std::vector <layerConnections> defaultDense(std::vector <size_t> feederDim, std:
     std::vector <layerConnections> ret;
     for(size_t i = neuralNetwork<ExtraDataT>::totalSize(feederDim) - 1; i + 1; --i)
         for(auto j = neuralNetwork<ExtraDataT>::totalSize(fedDim) - 1; j + 1; --j)
-            ret.push_back(std::pair<std::pair<size_t, size_t>, double>(std::pair<size_t, size_t>(i, j), n()));
+            ret.push_back(std::pair<std::pair<size_t, size_t>, double>(std::pair<size_t, size_t>(i, j), n() * 5));
     return ret;
 }
 
@@ -193,33 +200,33 @@ neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &, co
 
 
 
-template <typename ExtraDataT>
+template <typename ExtraDataT, int bias = 0/*millionieme*/, size_t learningRate/*millionieme*/ = 10000>
 neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate, const std::vector<size_t>*)
 {
     neuronConstructorParameters<ExtraDataT> ret;
     ret.c_normalize_p = normalizeNoHistory<ExtraDataT>;
     ret.c_activationFunction_p = relu;
     ret.c_activationFunctionDerivative_p = reluD;
-    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator<100>;
+    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator<learningRate>;//<100>;
     ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
     ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
-    ret.bias_p = -0.1;
+    ret.bias_p = static_cast<double>(bias) / 1000000;
     ret.historySize = 0;
     ret.droped = 0;
     return ret;
 }
 
-template <typename ExtraDataT, size_t leakyCoeff = 200/*millième*/>
+template <typename ExtraDataT, int bias = 0/*millionieme*/, size_t leakyCoeff = 200/*millième*/, size_t learningRate/*millionieme*/ = 10000>
 neuronConstructorParameters<ExtraDataT> defaultLkRelu(const neuronCoordinate, const std::vector<size_t>*)
 {
     neuronConstructorParameters<ExtraDataT> ret;
     ret.c_normalize_p = normalizeNoHistory<ExtraDataT>;
     ret.c_activationFunction_p = lkRelu<leakyCoeff>;
     ret.c_activationFunctionDerivative_p = lkReluD<leakyCoeff>;
-    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator<100>;
+    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator<learningRate>;//<100>;
     ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
     ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
-    ret.bias_p = -0.1;
+    ret.bias_p = static_cast<double>(bias) / 1000000;
     ret.historySize = 0;
     ret.droped = 0;
     return ret;

@@ -14,8 +14,6 @@
 
 
 
-#include "smartlink.h"
-
 
 
 namespace jo_nn
@@ -59,13 +57,13 @@ public:
 
     inline layerCoordinate(){n = 0;}
     layerCoordinate(const layerCoordinate&o):n(o.n){}
-    inline layerCoordinate(double i): n(i*10){}
-    inline layerCoordinate(int i): n(i*10){}
+    inline layerCoordinate(double i): n(static_cast<int>(i*100)){}
+    inline layerCoordinate(int i): n(i*100){}
     inline bool operator <(const layerCoordinate&o) const {return n < o.n;}
     inline bool operator==(const layerCoordinate&o) const {return n == o.n;}
     inline operator bool(){return n;}
-    inline void operator++(int){n += 10;}
-    inline void operator++(){n += 10;}
+    inline void operator++(int){n += 100;}
+    inline void operator++(){n += 100;}
     inline void operator=(const layerCoordinate&o){n = o.n;}
 };
 
@@ -102,9 +100,12 @@ class neuron;
 
 template <typename ExtraDataT>
 using computationFunction = std::function <void(const std::vector <std::pair<size_t, double*>> &sc
-                            , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
-                            , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
-                            , neuron<ExtraDataT>*)>;
+, const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
+, const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
+, neuron<ExtraDataT>*
+, neuronCoordinate nCoordinate
+, double errorIndicator
+, size_t cycle)>;
 
 
 
@@ -118,10 +119,6 @@ public://Attributs
     double bias;
     bool droped;
 
-    smartLinkPtingTo cycle;//size_t *cycle;///ces pointeurs sont problématiques. Ils enlèvent complètement la trivialité.
-    smartLinkPtingTo errorIndicator;//double *errorIndicator;
-    smartLinkPtingTo backPropagating;//bool *backPropagating;
-    neuronCoordinate nCoordinate;
 
     double forwardValue;
     std::deque <double> forwardValueHistory;
@@ -138,8 +135,8 @@ public://Attributs
 
 private :
 
-    std::vector <std::pair<size_t, double*>> selfCoeffs;
-    std::vector <std::pair <neuron*, double*>> next, previous;
+
+///A terme, enlever ceci
     friend class neuralNetwork<ExtraDataT>;
 
 public:
@@ -174,7 +171,7 @@ public://Membres
     neuron operator=(neuron&&) = delete;
     neuron operator=(const neuron&) = delete;
 
-    neuron(const neuron&);//delete;//default copy do not handle
+    neuron(const neuron&) = default;//delete;//default copy do not handle
     ~neuron() = default;
 
     neuron(std::function <void(bool direction, neuron* target)> c_normalize_p
@@ -185,11 +182,6 @@ public://Membres
         , computationFunction<ExtraDataT> backwardCalculator
         , double bias_p
         , bool droped_p, size_t historySize
-        , smartLinkPtedTo& slc, size_t *cycle_p///Cycle indicate a parallel cycle. Each cycle number is not
-                        ///a unique computation/assertion but n computation/assertion where n is the number of parallel network training
-        , smartLinkPtedTo& slei, double *errorIndicator_p
-        , smartLinkPtedTo& slbp, bool *backPropagating_p
-        , neuronCoordinate nCoordinate_p
         , ExtraDataT ExtraData_p);
 
 
@@ -204,25 +196,33 @@ public://Membres
         , double bias_p
         , bool initialDropState_p
         , size_t historySize
-        , smartLinkPtedTo &slc, size_t *cycle_p
-        , smartLinkPtedTo &slei, double *errorIndicator_p
-        , smartLinkPtedTo &slbp, bool *backPropagating_p
-        , neuronCoordinate nCoordinate_p
         , ExtraDataT ExtraData_p);
 
 
 
     inline void normalize(bool backward/*or back ward if = 0*/);
-    inline double wrapperCoeffDerivativeCalculator(
-        double currentCoefficient);//calls c_coeffDerivativeCalculator
+    inline double wrapperCoeffDerivativeCalculator(double currentCoefficient
+        , neuronCoordinate nCoordinate
+        , double errorIndicator
+        , size_t cycle
+        );//calls c_coeffDerivativeCalculator
 
 
-    inline void operator()();//calls c_normalize though normalize
-    inline void operator++();//calls c_forwardCompute
+    inline void operator()(bool backPropagating);//calls c_normalize though normalize
+    /*inline void operator++();//calls c_forwardCompute
     inline void operator++(int){this->operator++();}//calls c_forwardCompute
     inline void operator--();//calls c_backwardCompute
-    inline void operator--(int){this->operator--();}//calls c_forwardCompute
+    inline void operator--(int){this->operator--();}*///calls c_forwardCompute
 
+    inline void backC(std::vector<std::pair<size_t, double *>> &selfCoeffs,
+    std::vector<std::pair<neuron<ExtraDataT>*, double *>> &next,
+    std::vector<std::pair<neuron<ExtraDataT>*, double *>> &previous
+    , neuronCoordinate c, double errorIndicator, size_t cycle);
+
+    inline void forC(std::vector <std::pair <size_t, double*>> &selfCoeffs,
+        std::vector <std::pair <neuron<ExtraDataT>*, double*>> &next,
+        std::vector <std::pair <neuron<ExtraDataT>*, double*>> &previous
+        , neuronCoordinate c, double errorIndicator, size_t cycle);
 
 };
 
@@ -243,21 +243,13 @@ neuron<ExtraDataT>::neuron(std::function <void(bool direction, neuron* target)> 
     , double bias_p
     , bool droped_p
     , size_t historySize
-    , smartLinkPtedTo &slc, size_t *cycle_p
-    , smartLinkPtedTo &slei, double *errorIndicator_p
-    , smartLinkPtedTo &slbp, bool *backPropagating_p
-    , neuronCoordinate nCoordinate_p
     , ExtraDataT ExtraData_p):
 bias(bias_p),
 droped(droped_p),
-cycle(),
-errorIndicator(),
-backPropagating(),
-nCoordinate(nCoordinate_p),
 forwardValue(0),
-forwardValueHistory(historySize, NAN),
+forwardValueHistory(historySize, nan("")),
 backwardValue(0),
-backwardValueHistory(historySize, NAN),
+backwardValueHistory(historySize, nan("")),
 inited(1),
 linked(0),
 ExtraData(ExtraData_p),
@@ -269,9 +261,6 @@ c_backwardCompute(backwardCalculator_p),
 c_normalize(c_normalize_p)
 {
     assert(std::isnan(NAN));//std::numeric_limits::quiet_NaN
-    cycle.link(slc, cycle_p);
-    errorIndicator.link(slei, errorIndicator_p);
-    backPropagating.link(slbp, backPropagating_p);
 }
 
 
@@ -287,15 +276,10 @@ void neuron<ExtraDataT>::set(std::function <void(bool direction, neuron* target)
     , double bias_p
     , bool initialDropState_p
     , size_t historySize
-    , smartLinkPtedTo &slc, size_t *cycle_p
-    , smartLinkPtedTo &slei, double *errorIndicator_p
-    , smartLinkPtedTo &slbp, bool *backPropagating_p
-    , neuronCoordinate nCoordinate_p
     , ExtraDataT ExtraData_p)
 {
     bias = bias_p;
     droped = initialDropState_p;
-    cycle = cycle_p;
     ///normalement pas besoin de toucher ces 3 pointeurs ci dessous
     /// sauf architectures exotiques à voir éventuellement plus tard
     //errorIndicator = errorIndicator_p;
@@ -331,53 +315,81 @@ inline void neuron<ExtraDataT>::normalize(bool backward/*or forward if = 0*/)
 
 
 template <typename ExtraDataT>
-inline void neuron<ExtraDataT>::operator()()
+inline void neuron<ExtraDataT>::operator()(bool backPropagating)
 {
-    normalize(backPropagating.deref<bool>());
+    normalize(backPropagating);
 }
 
 
 
 
 template <typename ExtraDataT>
-inline double neuron<ExtraDataT>::wrapperCoeffDerivativeCalculator(
-    double currentCoefficient)
+inline double neuron<ExtraDataT>::wrapperCoeffDerivativeCalculator(double currentCoefficient
+, neuronCoordinate nCoordinate
+, double errorIndicator
+, size_t cycle
+)
 {
-    return c_coeffDerivativeCalculator(/***/cycle.deref<size_t>(), currentCoefficient
-        , backwardValue, /***/errorIndicator.deref<double>(), nCoordinate);
+    return c_coeffDerivativeCalculator(cycle, currentCoefficient
+        , backwardValue, /***/errorIndicator, nCoordinate);
 }
 
 
+
+
+
+template <typename ExtraDataT>
+inline void neuron<ExtraDataT>::backC(
+    std::vector <std::pair <size_t, double*>> &selfCoeffs,
+    std::vector <std::pair <neuron<ExtraDataT>*, double*>> &next,
+    std::vector <std::pair <neuron<ExtraDataT>*, double*>> &previous
+    , neuronCoordinate c, double errorIndicator, size_t cycle)
+{
+    c_backwardCompute(selfCoeffs, next, previous, this
+        , c, errorIndicator, cycle);
+}
+
+
+
+
+
+template <typename ExtraDataT>
+inline void neuron<ExtraDataT>::forC(
+    std::vector <std::pair <size_t, double*>> &selfCoeffs,
+    std::vector <std::pair <neuron<ExtraDataT>*, double*>> &next,
+    std::vector <std::pair <neuron<ExtraDataT>*, double*>> &previous
+    , neuronCoordinate c, double errorIndicator, size_t cycle)
+{
+    c_forwardCompute(selfCoeffs, next, previous, this
+        , c, errorIndicator, cycle);
+}
+
+
+
+/*
+template <typename ExtraDataT>
+inline void neuron<ExtraDataT>::operator++()
+{
+    cFor(selfCoeffs, next, previous, this);
+}
 
 
 
 template <typename ExtraDataT>
 inline void neuron<ExtraDataT>::operator--()
 {
-    c_backwardCompute(selfCoeffs, next, previous, this);
-}
-
-
-
-
-template <typename ExtraDataT>
-inline void neuron<ExtraDataT>::operator++()
-{
     c_forwardCompute(selfCoeffs, next, previous, this);
-}
+}*/
 
 
 
 
 
+/*
 template <typename ExtraDataT>
 neuron<ExtraDataT>::neuron(const neuron&n):
     bias(n.bias),
     droped(0),//i chose that droping state is not copied
-    cycle(n.cycle),
-    errorIndicator(n.errorIndicator),
-    backPropagating(n.backPropagating),
-    nCoordinate(n.nCoordinate),
     forwardValue(n.forwardValue),
     forwardValueHistory(n.forwardValueHistory),
     backwardValue(n.backwardValue),
@@ -392,12 +404,9 @@ neuron<ExtraDataT>::neuron(const neuron&n):
     c_backwardCompute(n.c_backwardCompute),
     c_normalize(n.c_normalize)
 {
-    next.clear();
-    previous.clear();
-    selfCoeffs.clear();
 }
 
-
+*/
 
 
 }

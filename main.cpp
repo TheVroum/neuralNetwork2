@@ -42,7 +42,7 @@ void trainingFunc(jo_nn::neuralNetwork<int> *nn)
     jo_nn::layerFeed layerBackFeed;
     layerBackFeed[2].resize(1);
 
-    for(size_t i = 0; i < 1000; ++i)
+    for(size_t i = 0; i < 10000; ++i)
     {
         std::cout  << "\n"  << "\n";
         if(!(i % 4))
@@ -75,9 +75,9 @@ std::vector <double*> visibilityVector;
 int main(int, char *[])//au pire je peux tester directement en mono thread
 {
     jo_nn::neuralNetwork<int> nn;
-    nn.addLayer({2}, 0, 1, 0, jo_nn::defaultLkRelu<int, 200>);
-    nn.addLayer({2}, 0, 0, 0, jo_nn::defaultLkRelu<int, 200>);
-    nn.addLayer({1}, 0, 0, 1, jo_nn::defaultLkRelu/*defaultSoftmax*/<int>);
+    nn.addLayer({2}, 0, 1, 0, jo_nn::defaultLkRelu<int, 0, 50, 1000>);
+    nn.addLayer({2}, 0, 0, 0, jo_nn::defaultLkRelu<int, 0, 50, 1000>);
+    nn.addLayer({1}, 0, 0, 1, jo_nn::defaultLkRelu<int, 0, 50, 1000>);
     nn.connectLayers(0, 1, jo_nn::defaultDense<int>);
     nn.connectLayers(1, 2, jo_nn::defaultDense<int>);
 

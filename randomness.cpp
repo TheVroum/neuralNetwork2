@@ -25,9 +25,9 @@ void normalness::remplir()
             e = e % 0x100;
             e = e <= 0x7F;
             k += e;*/
-            k += ((int) ((f() % 0x100) <= 0x7F));
+            k += (static_cast<int>((f() % 0x100) <= 0x7F));
         }
-        v.push_back((k-((double)5000))/((double)100));
+        v.push_back((k-(static_cast<int>(5000)))/(static_cast<double>(100)));
     }
 }
 

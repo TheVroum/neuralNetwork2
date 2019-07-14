@@ -57,7 +57,10 @@ template <typename ExtraDataT>
 using computationFunction = std::function <void(const std::vector <std::pair<size_t, double*>> &sc
                             , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
                             , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
-                            , neuron<ExtraDataT>*)>;
+                            , neuron<ExtraDataT>*
+                            , neuronCoordinate nCoordinate
+                            , double errorIndicator
+                            , size_t cycle)>;
 
 
 ///Callback type 5
@@ -80,7 +83,11 @@ neuronCoeffDerivativeCalculatorFunction;
 ///
 ///This callback is called after each forward or back computaion on each neuron and the first parameter is the direction that was just calculated.
 template <typename ExtraDataT>
-using neuronNormalizationCallback = std::function <void(bool backward, neuron<ExtraDataT>* target)>;
+using neuronNormalizationCallback = std::function <void(bool backward
+, neuron<ExtraDataT>* target
+, neuronCoordinate nCoordinate
+, double errorIndicator
+, size_t cycle)>;
 
 
 
@@ -91,7 +98,10 @@ using neuronNormalizationCallback = std::function <void(bool backward, neuron<Ex
 ///
 ///
 template <typename ExtraDataT>
-using interComputationNeuronAlterationFunction = std::function<void(neuron<ExtraDataT>* target, neuronCoordinate c, size_t cycle)>;
+using interComputationNeuronAlterationFunction = std::function<void(neuron<ExtraDataT>* target
+, neuronCoordinate nCoordinate
+, double errorIndicator
+, size_t cycle)>;
 
 
 
