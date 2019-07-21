@@ -9,15 +9,7 @@
 #include "randomness.h"
 #include "callbackstemplate.h"
 #include "neuron.h"
-
-
-
-
-
-
-
-
-
+#include "neuralnetwork.h"
 
 
 
@@ -38,12 +30,6 @@ typedef std::pair<std::pair<size_t, size_t>, double/*initial weight*/> layerConn
 
 
 ///create here a normalizeDropout callback
-
-
-
-
-
-
 
 
 
@@ -114,9 +100,9 @@ void normalizeNoHistory(bool backward, neuron<ExtraDataT>* target)//bias added i
 
 
 template <typename ExtraDataT>
-void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &//sc//no self recurrency
+void defaultForwardCompute(
 //bias added here
-    , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &
+    const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
     , neuron<ExtraDataT>* n
     , neuronCoordinate
@@ -125,8 +111,6 @@ void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &//sc/
 {
     if(!n->droped)
     {
-        /*for(auto a : sc)
-            n->forwardValue += (*(a.second)) * n->forwardValueHistory[a.first];*/
         for(auto a : pr)
             n->forwardValue += (*(a.second)) * a.first->forwardValue;
         n->forwardValue += n->bias;
@@ -137,8 +121,7 @@ void defaultForwardCompute(const std::vector <std::pair<size_t, double*>> &//sc/
 
 
 template <typename ExtraDataT>///recurrent coefficient not handled here ! Add them and optionally, add a second wrapperCoeffDerivator callback to calculate these specific coefficients
-void defaultBackwardCompute(const std::vector <std::pair<size_t, double*>> &//no self recurrency
-    , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
+void defaultBackwardCompute(const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
     , neuron<ExtraDataT>* n
     , neuronCoordinate nCoordinate
@@ -147,7 +130,6 @@ void defaultBackwardCompute(const std::vector <std::pair<size_t, double*>> &//no
 {
     if(!n->droped)
     {
-        //on ne peut pas récupérer les dérivées inverse du futur (cependant on pourrait dans le futur compenser)
         for(auto &a : ne)
             n->backwardValue += (*(a.second)) * a.first->backwardValue;
         n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
@@ -162,6 +144,7 @@ inline void emptyInterComputationNeuronAlterationFunction
     (neuron<ExtraDataT>*, neuronCoordinate, double, size_t)
 {}
 
+
 template <typename ExtraDataT>
 std::vector <layerConnections> defaultDense(std::vector <size_t> feederDim, std::vector<size_t> fedDim)
 {
@@ -172,31 +155,6 @@ std::vector <layerConnections> defaultDense(std::vector <size_t> feederDim, std:
             ret.push_back(std::pair<std::pair<size_t, size_t>, double>(std::pair<size_t, size_t>(i, j), n() * 5));
     return ret;
 }
-
-
-
-
-
-
-
-/*
-
-template <typename ExtraDataT>
-neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate &, const std::vector<size_t>*)
-{
-    neuronConstructorParameters<ExtraDataT> ret;
-    ret.c_normalize_p = normalizeNoHistory<ExtraDataT>;
-    ret.c_activationFunction_p = relu;
-    ret.c_activationFunctionDerivative_p = reluD;
-    ret.c_coeffDerivativeCalculator_p = defaultcoeffDerivativeCalculator;
-    ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
-    ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
-    ret.bias_p = -0.1;
-    ret.historySize = 0;
-    ret.droped = 0;
-    return ret;
-}
-*/
 
 
 
@@ -211,7 +169,6 @@ neuronConstructorParameters<ExtraDataT> defaultRelu(const neuronCoordinate, cons
     ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
     ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
     ret.bias_p = static_cast<double>(bias) / 1000000;
-    ret.historySize = 0;
     ret.droped = 0;
     return ret;
 }
@@ -227,22 +184,9 @@ neuronConstructorParameters<ExtraDataT> defaultLkRelu(const neuronCoordinate, co
     ret.forwardCalculator = defaultForwardCompute<ExtraDataT>;
     ret.backwardCalculator = defaultBackwardCompute<ExtraDataT>;
     ret.bias_p = static_cast<double>(bias) / 1000000;
-    ret.historySize = 0;
     ret.droped = 0;
     return ret;
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -306,31 +250,7 @@ void defaultNormalize(bool backward, neuron<ExtraDataT>* target)//set backward t
 }
 
 
-
-
-
-
-
-
-
-
-
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -11,6 +11,9 @@
 
 
 
+///Je supprime dans cette branche de branche de branche linked et inited de la class neurone
+/// car ils n'ont pas été très utile, peut être car je ne n'avais pas tropd de bug sur ça en particulier
+
 
 ///important : créer des spécialisations direcrement
 ///dans la librairie afin de rendre celle-ci très utilisable
@@ -28,7 +31,9 @@
 ///check that all coordinates in callbacks are given through copy and not reference
 
 
-///remplacer les pointeurs par des biderecitonal links de mon cru
+
+///pour construire le vecteur de neurones consécutifs pour le calcul avec les repères de synchronisation, faire appel à un callback
+///éventuellement en utiliser un autre pour le découpage (ou réserver ça à la version plus modulaire ultérieure)
 
 
 using namespace jo_nn;

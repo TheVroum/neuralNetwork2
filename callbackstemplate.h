@@ -54,8 +54,7 @@ typedef std::function <double(double input)> activationFunctionAndDerivative;
 /// its output product/its back derivative
 /// These call...[detail when theyare called]
 template <typename ExtraDataT>
-using computationFunction = std::function <void(const std::vector <std::pair<size_t, double*>> &sc
-                            , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
+using computationFunction = std::function <void(const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
                             , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
                             , neuron<ExtraDataT>*
                             , neuronCoordinate nCoordinate

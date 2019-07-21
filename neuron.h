@@ -19,17 +19,6 @@
 namespace jo_nn
 {
 
-///This library only support DAG type neural network. For instance, it doesnt support recurrent neural network.
-//expand to non dag with my idea
-//expand to general history connection
-
-
-//on next version, dissociate addition of values based on historical to allow ful parallelization of historical value based (pre-)calculus
-
-
-///les connections sont strictement successives : on ne peut pas prendre la valeur n-2 et pas la valeur n-1
-///Be careful to inline the higly used callbacks
-
 
 
 
@@ -41,13 +30,7 @@ namespace jo_nn
 ///a unique computation/assertion but n computation/assertion where n is the number of parallel network training
 
 
-
-
-///be careful. Copy operator is partial
-
-
-
-
+template <size_t dividableBy = 100>
 class layerCoordinate
 {
 public:
@@ -57,7 +40,7 @@ public:
 
     inline layerCoordinate(){n = 0;}
     layerCoordinate(const layerCoordinate&o):n(o.n){}
-    inline layerCoordinate(double i): n(static_cast<int>(i*100)){}
+    inline layerCoordinate(double i): n(static_cast<int>(i*dividableBy + 0.1/*implique que l'arrondi n'est par défault que sur les 9/10*/)){}
     inline layerCoordinate(int i): n(i*100){}
     inline bool operator <(const layerCoordinate&o) const {return n < o.n;}
     inline bool operator==(const layerCoordinate&o) const {return n == o.n;}
@@ -69,18 +52,12 @@ public:
 
 
 
-
-
-
-template <typename ExtraDataT/*on neurons*/>
-class neuralNetwork;
-
-
-
-
-
-class layerCoordinate;
 typedef std::pair <layerCoordinate, size_t> neuronCoordinate;
+
+template <typename ExtraDataT>
+class neuron;
+
+
 
 
 
@@ -94,13 +71,9 @@ neuronCoeffDerivativeCalculatorFunction;
 
 
 
-template <typename ExtraDataT>
-class neuron;
-
 
 template <typename ExtraDataT>
-using computationFunction = std::function <void(const std::vector <std::pair<size_t, double*>> &sc
-, const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
+using computationFunction = std::function <void(const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
 , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
 , neuron<ExtraDataT>*
 , neuronCoordinate nCoordinate
@@ -121,38 +94,13 @@ public://Attributs
 
 
     double forwardValue;
-    std::deque <double> forwardValueHistory;
     double backwardValue;
-    std::deque <double> backwardValueHistory;
-
-#ifndef NDEBUG
-    bool inited;
-    bool linked;
-#endif
-
-
-
-
-private :
-
-
-///A terme, enlever ceci
-    friend class neuralNetwork<ExtraDataT>;
-
-public:
-
-    ExtraDataT ExtraData;
-
-
 
 public://Callbacks to be eventually used by other callbacks
 
+    ExtraDataT ExtraData;
 
     std::function <double(double input)> c_activationFunction, c_activationFunctionDerivative;
-
-
-private:
-
 
     neuronCoeffDerivativeCalculatorFunction c_coeffDerivativeCalculator;
 
@@ -167,11 +115,11 @@ private:
 public://Membres
 
     neuron() = delete;
-    neuron(neuron&&) = delete;
-    neuron operator=(neuron&&) = delete;
-    neuron operator=(const neuron&) = delete;
 
-    neuron(const neuron&) = default;//delete;//default copy do not handle
+    neuron(neuron&&) = default;
+    neuron operator=(neuron&&) = default;
+    neuron operator=(const neuron&) = default;
+    neuron(const neuron&) = default;
     ~neuron() = default;
 
     neuron(std::function <void(bool direction, neuron* target)> c_normalize_p
@@ -181,22 +129,7 @@ public://Membres
         , computationFunction<ExtraDataT> forwardCalculator
         , computationFunction<ExtraDataT> backwardCalculator
         , double bias_p
-        , bool droped_p, size_t historySize
-        , ExtraDataT ExtraData_p);
-
-
-
-
-    void set/*operator=*/(std::function <void(bool direction, neuron* target)> c_normalize_p
-        , std::function <double(double input)> c_activationFunction_p
-        , std::function <double(double input)> c_activationFunctionDerivative_p
-        , neuronCoeffDerivativeCalculatorFunction c_coeffDerivativeCalculator_p
-        , computationFunction<ExtraDataT> forwardCalculator
-        , computationFunction<ExtraDataT> backwardCalculator
-        , double bias_p
-        , bool initialDropState_p
-        , size_t historySize
-        , ExtraDataT ExtraData_p);
+        , bool droped_p, ExtraDataT ExtraData_p);
 
 
 
@@ -208,19 +141,13 @@ public://Membres
         );//calls c_coeffDerivativeCalculator
 
 
-    inline void operator()(bool backPropagating);//calls c_normalize though normalize
-    /*inline void operator++();//calls c_forwardCompute
-    inline void operator++(int){this->operator++();}//calls c_forwardCompute
-    inline void operator--();//calls c_backwardCompute
-    inline void operator--(int){this->operator--();}*///calls c_forwardCompute
+    inline void operator()(bool backPropagating);
 
-    inline void backC(std::vector<std::pair<size_t, double *>> &selfCoeffs,
-    std::vector<std::pair<neuron<ExtraDataT>*, double *>> &next,
+    inline void backC(std::vector<std::pair<neuron<ExtraDataT>*, double *>> &next,
     std::vector<std::pair<neuron<ExtraDataT>*, double *>> &previous
     , neuronCoordinate c, double errorIndicator, size_t cycle);
 
-    inline void forC(std::vector <std::pair <size_t, double*>> &selfCoeffs,
-        std::vector <std::pair <neuron<ExtraDataT>*, double*>> &next,
+    inline void forC(std::vector <std::pair <neuron<ExtraDataT>*, double*>> &next,
         std::vector <std::pair <neuron<ExtraDataT>*, double*>> &previous
         , neuronCoordinate c, double errorIndicator, size_t cycle);
 
@@ -242,16 +169,11 @@ neuron<ExtraDataT>::neuron(std::function <void(bool direction, neuron* target)> 
     , computationFunction<ExtraDataT> backwardCalculator_p
     , double bias_p
     , bool droped_p
-    , size_t historySize
     , ExtraDataT ExtraData_p):
 bias(bias_p),
 droped(droped_p),
 forwardValue(0),
-forwardValueHistory(historySize, nan("")),
 backwardValue(0),
-backwardValueHistory(historySize, nan("")),
-inited(1),
-linked(0),
 ExtraData(ExtraData_p),
 c_activationFunction(c_activationFunction_p),
 c_activationFunctionDerivative(c_activationFunctionDerivative_p),
@@ -260,43 +182,9 @@ c_forwardCompute(forwardCalculator_p),
 c_backwardCompute(backwardCalculator_p),
 c_normalize(c_normalize_p)
 {
-    assert(std::isnan(NAN));//std::numeric_limits::quiet_NaN
 }
 
 
-
-
-template <typename ExtraDataT>
-void neuron<ExtraDataT>::set(std::function <void(bool direction, neuron* target)> c_normalize_p
-    , std::function <double(double input)> c_activationFunction_p
-    , std::function <double(double input)> c_activationFunctionDerivative_p
-    , neuronCoeffDerivativeCalculatorFunction c_coeffDerivativeCalculator_p
-    , computationFunction<ExtraDataT> forwardCalculator_p
-    , computationFunction<ExtraDataT> backwardCalculator_p
-    , double bias_p
-    , bool initialDropState_p
-    , size_t historySize
-    , ExtraDataT ExtraData_p)
-{
-    bias = bias_p;
-    droped = initialDropState_p;
-    ///normalement pas besoin de toucher ces 3 pointeurs ci dessous
-    /// sauf architectures exotiques à voir éventuellement plus tard
-    //errorIndicator = errorIndicator_p;
-    //backPropagating = backPropagating_p;
-    //nCoordinate = nCoordinate_p;
-    forwardValue = 0;
-    forwardValueHistory = historySize, NAN;
-    backwardValue = 0;
-    backwardValueHistory = historySize, NAN;
-    ExtraData = ExtraData_p;
-    c_normalize = c_normalize_p;
-    c_activationFunction = c_activationFunction_p;
-    c_activationFunctionDerivative = c_activationFunctionDerivative_p;
-    c_coeffDerivativeCalculator = c_coeffDerivativeCalculator_p;
-    c_forwardCompute = forwardCalculator_p;
-    c_backwardCompute = backwardCalculator_p;
-}
 
 
 
@@ -331,7 +219,7 @@ inline double neuron<ExtraDataT>::wrapperCoeffDerivativeCalculator(double curren
 )
 {
     return c_coeffDerivativeCalculator(cycle, currentCoefficient
-        , backwardValue, /***/errorIndicator, nCoordinate);
+        , backwardValue, errorIndicator, nCoordinate);
 }
 
 
@@ -340,73 +228,25 @@ inline double neuron<ExtraDataT>::wrapperCoeffDerivativeCalculator(double curren
 
 template <typename ExtraDataT>
 inline void neuron<ExtraDataT>::backC(
-    std::vector <std::pair <size_t, double*>> &selfCoeffs,
     std::vector <std::pair <neuron<ExtraDataT>*, double*>> &next,
     std::vector <std::pair <neuron<ExtraDataT>*, double*>> &previous
     , neuronCoordinate c, double errorIndicator, size_t cycle)
 {
-    c_backwardCompute(selfCoeffs, next, previous, this
+    c_backwardCompute(next, previous, this
         , c, errorIndicator, cycle);
 }
-
-
 
 
 
 template <typename ExtraDataT>
 inline void neuron<ExtraDataT>::forC(
-    std::vector <std::pair <size_t, double*>> &selfCoeffs,
     std::vector <std::pair <neuron<ExtraDataT>*, double*>> &next,
     std::vector <std::pair <neuron<ExtraDataT>*, double*>> &previous
     , neuronCoordinate c, double errorIndicator, size_t cycle)
 {
-    c_forwardCompute(selfCoeffs, next, previous, this
+    c_forwardCompute(next, previous, this
         , c, errorIndicator, cycle);
 }
-
-
-
-/*
-template <typename ExtraDataT>
-inline void neuron<ExtraDataT>::operator++()
-{
-    cFor(selfCoeffs, next, previous, this);
-}
-
-
-
-template <typename ExtraDataT>
-inline void neuron<ExtraDataT>::operator--()
-{
-    c_forwardCompute(selfCoeffs, next, previous, this);
-}*/
-
-
-
-
-
-/*
-template <typename ExtraDataT>
-neuron<ExtraDataT>::neuron(const neuron&n):
-    bias(n.bias),
-    droped(0),//i chose that droping state is not copied
-    forwardValue(n.forwardValue),
-    forwardValueHistory(n.forwardValueHistory),
-    backwardValue(n.backwardValue),
-    backwardValueHistory(n.backwardValueHistory),
-    inited(n.inited),
-    linked(n.linked),
-    ExtraData(n.ExtraData),
-    c_activationFunction(n.c_activationFunction),
-    c_activationFunctionDerivative(n.c_activationFunctionDerivative),
-    c_coeffDerivativeCalculator(n.c_coeffDerivativeCalculator),
-    c_forwardCompute(n.c_forwardCompute),
-    c_backwardCompute(n.c_backwardCompute),
-    c_normalize(n.c_normalize)
-{
-}
-
-*/
 
 
 }
