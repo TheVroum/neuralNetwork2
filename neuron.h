@@ -30,7 +30,6 @@ namespace jo_nn
 ///a unique computation/assertion but n computation/assertion where n is the number of parallel network training
 
 
-template <size_t dividableBy = 100>
 class layerCoordinate
 {
 public:
@@ -40,7 +39,7 @@ public:
 
     inline layerCoordinate(){n = 0;}
     layerCoordinate(const layerCoordinate&o):n(o.n){}
-    inline layerCoordinate(double i): n(static_cast<int>(i*dividableBy + 0.1/*implique que l'arrondi n'est par défault que sur les 9/10*/)){}
+    inline layerCoordinate(double i): n(static_cast<int>(i*/*dividableBy*/100.0 + 0.1/*implique que l'arrondi n'est par défault que sur les 9/10*/)){}
     inline layerCoordinate(int i): n(i*100){}
     inline bool operator <(const layerCoordinate&o) const {return n < o.n;}
     inline bool operator==(const layerCoordinate&o) const {return n == o.n;}
@@ -117,8 +116,8 @@ public://Membres
     neuron() = delete;
 
     neuron(neuron&&) = default;
-    neuron operator=(neuron&&) = default;
-    neuron operator=(const neuron&) = default;
+    neuron &operator=(neuron<ExtraDataT>&&) = default;
+    neuron &operator=(const neuron&) = default;
     neuron(const neuron&) = default;
     ~neuron() = default;
 

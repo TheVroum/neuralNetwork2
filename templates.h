@@ -75,7 +75,7 @@ inline double lkReluD(double input)
 
 
 template <size_t learningRate/*millionieme*/>
-inline double defaultcoeffDerivativeCalculator(size_t/* cycle*//*parameter name commented to prevent warnings, uncomment for use with your own callback*/
+inline double defaultcoeffDerivativeCalculatorNoSquare(size_t/* cycle*//*parameter name commented to prevent warnings, uncomment for use with your own callback*/
     , double coeff
     , double propagatingError, double /*errorIndicator*/
     , neuronCoordinate /*nCoordinate*/)
@@ -88,15 +88,102 @@ inline double defaultcoeffDerivativeCalculator(size_t/* cycle*//*parameter name 
         return propagatingError / (coeff * (100000.0 / learningRate));
 }
 
+
+template <size_t learningRate/*millionieme*/>//side effect : calls rand()
+inline double defaultcoeffDerivativeCalculator(size_t/* cycle*//*parameter name commented to prevent warnings, uncomment for use with your own callback*/
+    , double coeff
+    , double propagatingError, double /*errorIndicator*/
+    , neuronCoordinate /*nCoordinate*/)
+{
+    if(rand() % 100 < 1)
+    {
+        normalness nness(rand);
+        propagatingError += nness() * 25;
+    }
+    //propagatingError *= std::abs(propagatingError);
+    if(/*signbit(*/propagatingError * coeff/*)*/ < 0.0)
+        return propagatingError * (learningRate / 1000000.0);
+    if(std::abs(coeff) < 10.0)
+        return propagatingError * (learningRate / 1000000.0);
+    else
+        return propagatingError / (coeff * (100000.0 / learningRate));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 template <typename ExtraDataT>
-void normalizeNoHistory(bool backward, neuron<ExtraDataT>* target)//bias added in forward compute
+void normalizeNoHistoryClassic(bool backward, neuron<ExtraDataT>* target)//bias added in forward compute
 {
     if(!backward)
         target->forwardValue = 0;
     else
         target->backwardValue = 0;
     return;
+
 }
+
+template <typename ExtraDataT>
+void normalizeNoHistory(bool backward, neuron<ExtraDataT>* target)//bias added in forward compute
+{
+    if(backward)
+        target->backwardValue = 0, target->forwardValue = 0;;
+    return;
+
+}
+
+
+
+template <typename ExtraDataT>
+void defaultForwardComputeClassic(
+//bias added here
+    const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &
+    , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
+    , neuron<ExtraDataT>* n
+    , neuronCoordinate
+    , double
+    , size_t)
+{
+    if(!n->droped)
+    {
+        for(auto a : pr)
+            n->forwardValue += (*(a.second)) * a.first->forwardValue;
+        n->forwardValue += n->bias;
+        n->forwardValue = n->c_activationFunction(n->forwardValue);
+    }
+}
+
+
+
+template <typename ExtraDataT>///recurrent coefficient not handled here ! Add them and optionally, add a second wrapperCoeffDerivator callback to calculate these specific coefficients
+void defaultBackwardComputeClassic(const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
+    , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
+    , neuron<ExtraDataT>* n
+    , neuronCoordinate nCoordinate
+    , double errorIndicator
+    , size_t cycle)
+{
+    if(!n->droped)
+    {
+        for(auto &a : ne)
+            n->backwardValue += (*(a.second)) * a.first->backwardValue;
+        n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
+        for(auto &a : pr)
+            (*(a.second)) += n->wrapperCoeffDerivativeCalculator(*(a.second), nCoordinate, errorIndicator, cycle);//automatically gets n->backwardValue
+    }
+}
+
+
 
 
 template <typename ExtraDataT>
@@ -119,7 +206,26 @@ void defaultForwardCompute(
 }
 
 
-
+/*
+template <typename ExtraDataT>///recurrent coefficient not handled here ! Add them and optionally, add a second wrapperCoeffDerivator callback to calculate these specific coefficients
+void defaultBackwardComputeNotSquared(const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
+    , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
+    , neuron<ExtraDataT>* n
+    , neuronCoordinate nCoordinate
+    , double errorIndicator
+    , size_t cycle)
+{
+    if(!n->droped)
+    {
+        for(auto &a : ne)
+            n->backwardValue += (*(a.second)) * a.first->backwardValue;
+        //n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
+        auto m = n->c_activationFunctionDerivative(n->forwardValue);
+        n->backwardValue = n->backwardValue * m;
+        for(auto &a : pr)
+            (*(a.second)) += n->wrapperCoeffDerivativeCalculator(*(a.second), nCoordinate, errorIndicator, cycle);//automatically gets n->backwardValue
+    }
+}*/
 template <typename ExtraDataT>///recurrent coefficient not handled here ! Add them and optionally, add a second wrapperCoeffDerivator callback to calculate these specific coefficients
 void defaultBackwardCompute(const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &ne
     , const std::vector <std::pair <neuron<ExtraDataT>*, double*>> &pr
@@ -132,11 +238,15 @@ void defaultBackwardCompute(const std::vector <std::pair <neuron<ExtraDataT>*, d
     {
         for(auto &a : ne)
             n->backwardValue += (*(a.second)) * a.first->backwardValue;
-        n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
+        //n->backwardValue *= n->c_activationFunctionDerivative(n->forwardValue);
+        auto m = n->c_activationFunctionDerivative(n->forwardValue);
+        n->backwardValue = n->backwardValue * m;
         for(auto &a : pr)
             (*(a.second)) += n->wrapperCoeffDerivativeCalculator(*(a.second), nCoordinate, errorIndicator, cycle);//automatically gets n->backwardValue
     }
 }
+
+
 
 
 template <typename ExtraDataT>
@@ -152,7 +262,7 @@ std::vector <layerConnections> defaultDense(std::vector <size_t> feederDim, std:
     std::vector <layerConnections> ret;
     for(size_t i = neuralNetwork<ExtraDataT>::totalSize(feederDim) - 1; i + 1; --i)
         for(auto j = neuralNetwork<ExtraDataT>::totalSize(fedDim) - 1; j + 1; --j)
-            ret.push_back(std::pair<std::pair<size_t, size_t>, double>(std::pair<size_t, size_t>(i, j), n() * 5));
+            ret.push_back(std::pair<std::pair<size_t, size_t>, double>(std::pair<size_t, size_t>(i, j), n() * 5/*.0//dont forget its a double and it has to be if we want coefficient with "décimales"*/));
     return ret;
 }
 

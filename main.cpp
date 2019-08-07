@@ -11,6 +11,12 @@
 
 
 
+
+
+
+///defaultCoeffDerivativeCalculator callback and the dense connection callback calls rand()
+
+
 ///Je supprime dans cette branche de branche de branche linked et inited de la class neurone
 /// car ils n'ont pas été très utile, peut être car je ne n'avais pas tropd de bug sur ça en particulier
 
@@ -41,9 +47,13 @@ using namespace jo_nn;
 
 
 
+std::vector <double*> visibilityVector;
 
 void trainingFunc(jo_nn::neuralNetwork<int> *nn)
 {
+    for(auto &a : nn->next)
+        for(auto &b : a.second)
+            visibilityVector.push_back((b.second));
     jo_nn::layerFeed layerBackFeed;
     layerBackFeed[2].resize(1);
 
@@ -74,15 +84,14 @@ void trainingFunc(jo_nn::neuralNetwork<int> *nn)
 
 
 
-
-std::vector <double*> visibilityVector;
+//C'est les appels à normalness qui rendent tout si long
 
 int main(int, char *[])//au pire je peux tester directement en mono thread
 {
     jo_nn::neuralNetwork<int> nn;
-    nn.addLayer({2}, 0, 1, 0, jo_nn::defaultLkRelu<int, 0, 50, 1000>);
-    nn.addLayer({2}, 0, 0, 0, jo_nn::defaultLkRelu<int, 0, 50, 1000>);
-    nn.addLayer({1}, 0, 0, 1, jo_nn::defaultLkRelu<int, 0, 50, 1000>);
+    nn.addLayer({2}, 0, 1, 0, jo_nn::defaultRelu<int, 0>);///if its a feeding layer, the activation function doesn't matters
+    nn.addLayer({2}, 0, 0, 0, jo_nn::defaultRelu<int, 0>);
+    nn.addLayer({1}, 0, 0, 1, jo_nn::defaultRelu<int, 0>);
     nn.connectLayers(0, 1, jo_nn::defaultDense<int>);
     nn.connectLayers(1, 2, jo_nn::defaultDense<int>);
 
@@ -126,3 +135,10 @@ int main(int, char *[])//au pire je peux tester directement en mono thread
     return 0;
 
 }
+
+
+
+
+
+
+

@@ -6,10 +6,10 @@ namespace jo_nn
 {
 
 
-normalness::normalness(std::function <int()> fp):
-    f(fp)
+normalness::normalness(std::function <int()> /*fp*/)//:
+//    f(fp)
 {
-    remplir();
+    ///remplir();//to change (to recover)
 }
 
 
@@ -37,6 +37,10 @@ void normalness::remplir()
 
 double normalness::operator()()
 {
+    static std::default_random_engine generator;
+    static std::normal_distribution<double> distribution(0.0, 1.0);///to change !!!
+    return distribution(generator);
+
     if(v.empty())
         remplir();
     double ret = v.back();

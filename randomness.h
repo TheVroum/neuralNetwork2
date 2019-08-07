@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <vector>
+#include <random>
 
 
 namespace jo_nn
