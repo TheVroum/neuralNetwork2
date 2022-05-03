@@ -11,7 +11,7 @@
 
 
 
-
+///ajouter un histo pour les bias et faire mon idée
 
 
 ///defaultCoeffDerivativeCalculator callback and the dense connection callback calls rand()
@@ -57,7 +57,7 @@ void trainingFunc(jo_nn::neuralNetwork<int> *nn)
     jo_nn::layerFeed layerBackFeed;
     layerBackFeed[2].resize(1);
 
-    for(size_t i = 0; i < 10000; ++i)
+    for(size_t i = 0; i < 100000; ++i)
     {
         std::cout  << "\n"  << "\n";
         if(!(i % 4))
@@ -74,6 +74,7 @@ void trainingFunc(jo_nn::neuralNetwork<int> *nn)
         lf[0] = v;
 
         double res = nn->forCompute(lf)[2][0];
+        res *= std::abs(res);
         std::cout << "Result : " << res << ".\tDiff : " << (a ^ b) - res << "." << std::endl;
         layerBackFeed[2][0] = (a ^ b) - res;
         //double diff = abs(layerBackFeed[2][0]);
@@ -89,11 +90,13 @@ void trainingFunc(jo_nn::neuralNetwork<int> *nn)
 int main(int, char *[])//au pire je peux tester directement en mono thread
 {
     jo_nn::neuralNetwork<int> nn;
-    nn.addLayer({2}, 0, 1, 0, jo_nn::defaultRelu<int, 0>);///if its a feeding layer, the activation function doesn't matters
-    nn.addLayer({2}, 0, 0, 0, jo_nn::defaultRelu<int, 0>);
-    nn.addLayer({1}, 0, 0, 1, jo_nn::defaultRelu<int, 0>);
+    nn.addLayer({2}, 0, 1, 0, jo_nn::defaultRelu<int, 0, 50000>);///if its a feeding layer, the activation function doesn't matters
+    nn.addLayer({4}, 0, 0, 0, jo_nn::defaultRelu<int, 0, 50000>);
+    nn.addLayer({2}, 0, 0, 1, jo_nn::defaultRelu<int, 0, 50000>);
+    nn.addLayer({1}, 0, 0, 1, jo_nn::defaultRelu<int, 0, 50000>);
     nn.connectLayers(0, 1, jo_nn::defaultDense<int>);
     nn.connectLayers(1, 2, jo_nn::defaultDense<int>);
+    nn.connectLayers(2, 3, jo_nn::defaultDense<int>);
 
 
     for(auto &a : nn.links)
